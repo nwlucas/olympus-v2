@@ -1,0 +1,65 @@
+---
+stages:
+  - check
+  - prep
+  - build
+
+variables:
+  SSH_PRV_EXISTS: ""
+  SSH_PUB_EXISTS: ""
+
+ssh_check:
+  stage: check
+  image:
+    name: amazon/aws-cli
+    entrypoint:
+      - '/usr/bin/env'
+      - 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+  script:
+      - SSH_PRV_EXISTS=$(aws s3api head-object --bucket ${AWS_BUCKET} --key "ssh_keys/ssh_instance") || true
+      - SSH_PUB_EXISTS=$(aws s3api head-object --bucket ${AWS_BUCKET} --key "ssh_keys/ssh_instance.pub") || true
+      - echo ${SSH_PRV_EXISTS}
+      - echo ${SSH_PUB_EXISTS}
+
+ssh_prep:
+  stage: prep
+  needs:
+    - job: ssh_check
+      artifacts: true
+  image:
+    name: amazon/aws-cli
+    entrypoint:
+      - '/usr/bin/env'
+      - 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+  script:
+    - mkdir -p ssh_keys/tmp
+    - aws s3 cp --quiet s3://${AWS_BUCKET}/ssh_keys/ssh_instance ./ssh_keys/
+    - aws s3 cp --quiet s3://${AWS_BUCKET}/ssh_keys/ssh_instance.pub ./ssh_keys/
+    - chmod 0400 ./ssh_keys/ssh_instance
+    - chmod 0400 ./ssh_keys/ssh_instance.pub
+  artifacts:
+    public: false
+    untracked: false
+    expire_in: 1 day
+    paths:
+      - "ssh_keys/"
+
+digitalocean-build:
+  stage: build
+  needs:
+    - job: ssh_prep
+      artifacts: true
+  image:
+    name: hashicorp/packer:1.7.4
+    entrypoint:
+      - '/usr/bin/env'
+      - 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+  rules:
+    - if: '$CI_COMMIT_TAG != null && $CI_COMMIT_REF_NAME == "main"'
+  script:
+    - echo "Preparing to build Ubuntu 20.04 DO images"
+    - cd builds/linux/ubuntu-2004-do
+    - packer init .
+    - packer build --timestamp-ui -force -var-file="../../../do-ubuntu-2004-general.pkrvars.hcl" .
+
+

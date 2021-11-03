@@ -1,0 +1,23 @@
+#cloud-config
+autoinstall:
+  version: 1
+  early-commands:
+    - systemctl stop ssh
+  locale: en_US
+  keyboard:
+    layout: en
+    variant: us
+  storage:
+    layout:
+      name: lvm
+  identity:
+    hostname: ubuntu
+    username: ubuntu
+    password: $6$rounds=4096$kj.v7HV/5JZ/o5J/$YJ5hmj8NYN8f79yCKhsh6Hv67Y8Cj9X.UbOckyqHGN41KRY7LzjI42ivLlMoMrWI6l11E/fh9EINQstlEQ4ll0
+  ssh:
+    install-server: yes    
+  user-data:
+    disable_root: false
+  late-commands:
+    - 'sed -i "s/dhcp4: true/&\n      dhcp-identifier: mac/" /target/etc/netplan/00-installer-config.yaml'
+    - echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/ubuntu

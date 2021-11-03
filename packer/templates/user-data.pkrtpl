@@ -1,0 +1,33 @@
+#cloud-config
+apt:
+  sources:
+    ansible:
+      source: "ppa:ansible/ansible"
+
+timezone: "America/New_York"
+packages:
+- apt-transport-https
+- ca-certificates
+- curl
+- software-properties-common
+- nfs-common
+- open-iscsi
+- libio-socket-ssl-perl
+- libdata-validate-ip-perl
+- libjson-any-perl
+
+chpasswd:
+  list: |
+    ubuntu:${ ssh_password}
+  expire: false
+ssh_authorized_keys:
+- ${ ssh_pub_key }
+users:
+- name: ubuntu
+  shell: /bin/bash
+  gecos: Ubuntu
+  sudo: ALL=(ALL) NOPASSWD:ALL
+  group: [adm, audio, cdrom, dialout, floppy, video, plugdev, dip, netdev]
+  ssh_authorized_keys:
+    - ${ ssh_pub_key }
+final_message: "The system is up after $UPTIME seconds."

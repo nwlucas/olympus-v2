@@ -1,0 +1,37 @@
+---
+
+cluster: {}
+dns: {}
+
+# ===========================
+# EXAMPLE CONFIG
+# ===========================
+#  dns:
+#    forward: true
+#  cluster:
+#    consul:
+#      install: true
+#      config:
+#        log_level: err
+#        server: true
+#        data_dir: /var/opt/consul
+#        bootstrap_expect: 1
+#        client_addr: "0.0.0.0"
+#        ui: true
+#        performance:
+#          raft_multiplier: 10
+#        recursors:
+#        - 1.1.1.1
+#        - 8.8.8.8
+#        connect:
+#          enabled: true
+#        ports:
+#          grpc: 8502
+#    nomad:
+#      install: true
+#      config:
+#        server:
+#          enabled: true
+#          bootstrap_Expect: 1
+
+force_install: true

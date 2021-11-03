@@ -1,0 +1,9 @@
+vault_install: true
+vault_version: latest
+
+vault_service:
+  enabled: false
+  masked: false
+  user: vault
+
+vault_config: {}

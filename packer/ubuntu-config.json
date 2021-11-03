@@ -1,0 +1,39 @@
+{
+  "DiskProvisioning": "thin",
+  "IPAllocationPolicy": "dhcpPolicy",
+  "IPProtocol": "IPv4",
+  "InjectOvfEnv": false,
+  "MarkAsTemplate": false,
+  "WaitForIP": false,
+  "Name": "ubuntu1804-template",
+  "NetworkMapping": [{
+    "Name": "pgVM",
+    "Network": "pgVM"
+  }],
+  "PowerOn": false,
+  "PropertyMapping": [{
+      "Key": "instance-id",
+      "Value": "id-ovf"
+    },
+    {
+      "Key": "hostname",
+      "Value": "ubuntu1804-template"
+    },
+    {
+      "Key": "seedfrom",
+      "Value": ""
+    },
+    {
+      "Key": "public-keys",
+      "Value": ""
+    },
+    {
+      "Key": "user-data",
+      "Value": ""
+    },
+    {
+      "Key": "password",
+      "Value": "Alive@5!"
+    }
+  ]
+}

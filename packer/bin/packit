@@ -1,0 +1,33 @@
+#!/bin/sh -eux
+
+echo "Checking for generated ssh key..."
+ssh_prv_exists=$(aws s3api head-object --bucket ${AWS_BUCKET} --key "ssh_keys/ssh_instance") || true
+ssh_pub_exists=$(aws s3api head-object --bucket ${AWS_BUCKET} --key "ssh_keys/ssh_instance.pub") || true
+
+if [ ! -d "./ssh_keys" ]; then
+  echo "Directory ./ssh_keys DOES NOT exist..."
+  echo "Creating it.."
+  mkdir -p ssh_keys
+fi
+
+if [ -z "$ssh_prv_exists" ] && [ -z "$ssh_pub_exists" ]; then
+  echo "SSH Public & Private key does not exist."
+
+  echo "Generating keys..."
+  ssh-keygen -q -o -a 100 -t ed25519 -C "automation@nwlnexus.net" -f "./ssh_keys/ssh_instance" -N ""
+
+  echo "Uploading SSH keys to AWS S3..."
+  for file in "./ssh_keys"/*; do
+    aws s3 cp "./ssh_keys/${file##*/}" s3://"${AWS_BUCKET}"/ssh_keys/"${file##*}"
+  done
+else
+  echo "SSH Public & Private key does exist."
+
+  aws s3 cp s3://"${AWS_BUCKET}"/ssh_keys/ssh_instance ./ssh_keys/
+  aws s3 cp s3://"${AWS_BUCKET}"/ssh_keys/ssh_instance.pub ./ssh_keys/
+  chmod 0400 ./ssh_keys/ssh_instance
+  chmod 0400 ./ssh_keys/ssh_instance.pub
+fi
+
+echo "Beginning packer builds..."
+packer build --timestamp-ui -force .

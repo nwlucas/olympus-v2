@@ -1,0 +1,607 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Vagrantfile for testing the distinct installs of nomad, consul, vault and unifios
+
+VAGRANTFILE_API_VERSION = "2"
+BOX_MEM = ENV['BOX_MEM'] || "1536"
+DEFAULT_BOX_NAME = "ubuntu/focal64"
+DEFAULT_BOX_URL = "https://app.vagrantup.com/ubuntu/boxes/focal64/versions/20210720.0.1/providers/virtualbox.box"
+CLUSTER_HOSTS = ENV['CLUSTER_HOSTS'] || "vagrant_hosts"
+
+$cloud_init = <<-EOCLOUD
+#cloud-config
+merge_how:
+- name: list
+  settings: [append]
+- name: dict
+  settings: [no_replace, recurse_list]
+chpasswd:
+  list: |
+    ubuntu:#{ENV['PKR_VAR_ssh_password']}
+  expire: false
+manage_etc_hosts: "template"
+timezone: "America/New_York"
+package_update: true
+package_upgrade: true
+packages:
+- cockpit
+- ca-certificates
+- apt-transport-https
+- wget
+- curl
+- gnupg
+- net-tools
+- python-is-python3
+- python3-pip
+- python3-testresources
+- jq
+
+ssh_authorized_keys:
+- #{IO.binread(File.join(File.dirname(__FILE__),"/ssh_keys/ssh_instance.pub"))}
+users:
+- name: ubuntu
+  shell: /bin/bash
+  gecos: Ubuntu
+  sudo: ALL=(ALL) NOPASSWD:ALL
+  group: [adm, audio, cdrom, dialout, floppy, video, plugdev, dip, netdev, ddclient]
+  groups: sudo
+  ssh_authorized_keys:
+  - #{IO.binread(File.join(File.dirname(__FILE__),"/ssh_keys/ssh_instance.pub"))}
+write_files:
+- content: ""
+  path: /opt/bootstrap/.cloudcreate
+  owner: root:root
+  permissions: '0644'
+- content: |
+    [Unit]
+    Description=Setup Network Environment
+    Documentation=https://github.com/kelseyhightower/setup-network-environment
+    Requires=systemd-networkd-wait-online.service
+    After=systemd-networkd-wait-online.service
+
+    [Service]
+    ExecStartPre=-/usr/bin/mkdir -p /opt/bin
+    ExecStartPre=/usr/bin/wget -N -P /opt/bin https://github.com/kelseyhightower/setup-network-environment/releases/download/1.0.1/setup-network-environment
+
+    ExecStartPre=/usr/bin/chmod +x /opt/bin/setup-network-environment
+    ExecStart=/opt/bin/setup-network-environment
+    RemainAfterExit=yes
+    Type=oneshot
+
+    [Install]
+    WantedBy=multi-user.target
+  path: /etc/systemd/system/setup-network-environment.service
+  owner: root:root
+  permissions: '0600'
+- content: dns_cloudflare_api_token = #{ENV['CLOUDFLARE_API_TOKEN']}
+  path: /opt/bootstrap/acme/cf_creds.ini
+  owner: root:root
+  permissions: '0600'
+- content: ""
+  path: /opt/ansible/roles/.cloudcreate
+  owner: root:root
+  permissions: '0644'
+- content: ""
+  path: /opt/ansible/modules/.cloudcreate
+  owner: root:root
+  permissions: '0644'
+- content: ""
+  path: /opt/ansible/collections/.cloudcreate
+  owner: root:root
+  permissions: '0644'
+- content: |
+    [defaults]
+
+    # some basic default values...
+    interpreter_python = auto_silent
+    #inventory      = ./hosts
+    library        = /opt/ansible/modules
+    #module_utils   = /usr/share/my_module_utils/
+    #remote_tmp     = ~/.ansible/tmp
+    #local_tmp      = ~/.ansible/tmp
+    #plugin_filters_cfg = /etc/ansible/plugin_filters.yml
+    #forks          = 5
+    #poll_interval  = 15
+    #sudo_user      = root
+    #ask_sudo_pass = True
+    #ask_pass      = True
+    transport      = smart
+    #remote_port    = 22
+    #module_lang    = C
+    #module_set_locale = False
+
+    gathering = implicit
+    #gather_subset = all
+    # gather_timeout = 10
+    inject_facts_as_vars = False
+    roles_path    = /opt/ansible/roles
+    collections_paths = /opt/ansible/collections
+    #host_key_checking = False
+    #stdout_callback = skippy
+    #callback_whitelist = timer, mail
+    #task_includes_static = False
+    #handler_includes_static = False
+    #error_on_missing_handler = True
+    #sudo_exe = sudo
+    #sudo_flags = -H -S -n
+    #timeout = 10
+    #remote_user = root
+    #log_path = /var/log/ansible.log
+    #module_name = command
+    #executable = /bin/sh
+    #hash_behaviour = replace
+    #private_role_vars = yes
+    #jinja2_extensions = jinja2.ext.do,jinja2.ext.i18n
+    #private_key_file = /path/to/file
+    vault_password_file = /opt/ansible/.vault
+    ansible_managed = Ansible managed
+    #display_skipped_hosts = True
+    #display_args_to_stdout = False
+    #error_on_undefined_vars = False
+    #system_warnings = True
+    deprecation_warnings = False
+    # command_warnings = False
+
+
+    # set plugin path directories here, separate with colons
+    #action_plugins     = /usr/share/ansible/plugins/action
+    #become_plugins     = /usr/share/ansible/plugins/become
+    #cache_plugins      = /usr/share/ansible/plugins/cache
+    #callback_plugins   = /usr/share/ansible/plugins/callback
+    #connection_plugins = /usr/share/ansible/plugins/connection
+    #lookup_plugins     = /usr/share/ansible/plugins/lookup
+    #inventory_plugins  = /usr/share/ansible/plugins/inventory
+    #vars_plugins       = /usr/share/ansible/plugins/vars
+    #filter_plugins     = /usr/share/ansible/plugins/filter
+    #test_plugins       = /usr/share/ansible/plugins/test
+    #terminal_plugins   = /usr/share/ansible/plugins/terminal
+    #strategy_plugins   = /usr/share/ansible/plugins/strategy
+
+    #strategy = free
+    #bin_ansible_callbacks = False
+    nocows = 1
+    #cow_selection = default
+    #cow_selection = random
+    #cow_whitelist=bud-frogs,bunny,cheese,daemon,default,dragon,elephant-in-snake,elephant,eyes,\
+    #              hellokitty,kitty,luke-koala,meow,milk,moofasa,moose,ren,sheep,small,stegosaurus,\
+    #              stimpy,supermilker,three-eyes,turkey,turtle,tux,udder,vader-koala,vader,www
+    nocolor = 1
+    #fact_caching = memory
+    #fact_caching_connection=/tmp
+    #retry_files_enabled = False
+    #retry_files_save_path = ~/.ansible-retry
+    #squash_actions = apk,apt,dnf,homebrew,pacman,pkgng,yum,zypper
+    #no_log = False
+    #no_target_syslog = False
+    #allow_world_readable_tmpfiles = False
+    #var_compression_level = 9
+    #module_compression = 'ZIP_DEFLATED'
+    #max_diff_size = 1048576
+    #merge_multiple_cli_flags = True
+    #show_custom_stats = True
+    #inventory_ignore_extensions = ~, .orig, .bak, .ini, .cfg, .retry, .pyc, .pyo
+    #network_group_modules=eos, nxos, ios, iosxr, junos, vyos
+    #allow_unsafe_lookups = False
+    #any_errors_fatal = False
+
+    [inventory]
+    enable_plugins = host_list, yaml, ini, script, auto, community.digitalocean.digitalocean
+    #ignore_extensions = .pyc, .pyo, .swp, .bak, ~, .rpm, .md, .txt, ~, .orig, .ini, .cfg, .retry
+    #ignore_patterns=
+    #unparsed_is_failed=False
+
+    [privilege_escalation]
+    #become=True
+    #become_method=sudo
+    #become_user=root
+    #become_ask_pass=False
+
+    [paramiko_connection]
+    #record_host_keys=False
+    #pty=False
+    #look_for_keys = False
+    #host_key_auto_add = True
+
+    [ssh_connection]
+    #ssh_args = -C -o ControlMaster=auto -o ControlPersist=60s
+    #control_path_dir = ~/.ansible/cp
+    #control_path =
+    #pipelining = False
+    #scp_if_ssh = smart
+    #transfer_method = smart
+    #sftp_batch_mode = False
+    #usetty = True
+    #retries = 3
+
+    [persistent_connection]
+    #connect_timeout = 30
+    #command_timeout = 30
+
+    [accelerate]
+    #accelerate_port = 5099
+    #accelerate_timeout = 30
+    #accelerate_connect_timeout = 5.0
+    #accelerate_daemon_timeout = 30
+    #accelerate_multi_key = yes
+
+    [selinux]
+    #special_context_filesystems=nfs,vboxsf,fuse,ramfs,9p,vfat
+    #libvirt_lxc_noseclabel = yes
+
+    [colors]
+    #highlight = white
+    #verbose = blue
+    #warn = bright purple
+    #error = red
+    #debug = dark gray
+    #deprecate = purple
+    #skip = cyan
+    #unreachable = red
+    #ok = green
+    #changed = yellow
+    #diff_add = green
+    #diff_remove = red
+    #diff_lines = cyan
+
+    [diff]
+    always = yes
+    context = 3
+  path: /etc/ansible/ansible.cfg
+  owner: root:root
+  permissions: '0644'
+- content: "*/10 * * * * root /usr/bin/flock -w 0 /var/run/apw.lock /opt/bin/apw.sh /opt/bootstrap/ansible-pull https://gitlab+deploy-token-435799:pWgKfr9U7GmkgDyRkdZv@gitlab.com/olympus-net/infrastructure/oob-syncer.git\n"
+  path: /etc/cron.d/ansible-pull
+  owner: root:root
+  permissions: '0644'
+- content: "#{ENV['ANSIBLE_VAULT_PWD']}\n"
+  path: /opt/ansible/.vault
+  owner: root:root
+  permissions: "0644"
+- content: |
+    #!/bin/sh -eux
+
+    # Ansible-Pull Wrapper
+    cat <<EOT>> /var/log/ansible-pull.log
+    ** Ansible Pull Run
+    ** Ansible Version:
+    $(/usr/local/bin/ansible --version) >> /var/log/ansible-pull.log
+    ** Executed at: $(date)
+    EOT
+    echo "Wait for cloud init completion.." >> /var/log/ansible-pull.log
+    cloud-init status --wait --long
+
+    echo "Checking for python packages that need to be installed..." >> /var/log/ansible-pull.log
+    [ -f "/opt/bootstrap/ansible-pull/requirements.txt" ] && pip3 --quiet install --no-cache-dir --no-color --upgrade --requirement /opt/bootstrap/ansible-pull/requirements.txt >> /var/log/ansible-pull.log
+
+    echo "Checking for ansible collections/roles that need to be installed..." >> /var/log/ansible-pull.log
+    [ -f "/opt/bootstrap/ansible-pull/requirements.yml" ] && /usr/local/bin/ansible-galaxy install -i -r /opt/bootstrap/ansible-pull/requirements.yml >> /var/log/ansible-pull.log
+    . /etc/profile.d/provisioning.sh
+    DO_API_TOKEN=${DO_API_TOKEN} /usr/local/bin/ansible-pull --accept-host-key -o -d $1 -U $2 -e "ansible_python_interpreter=/usr/bin/python3" -i /etc/ansible/hosts.digitalocean.yaml local.yaml -l $(hostname) >> /var/log/ansible-pull.log 2>&1
+  path: /opt/bin/apw.sh
+  owner: root:root
+  permissions: "0755"
+
+- content: |
+    /var/log/ansible-pull.log {
+      rotate 12
+      monthly
+      compress
+      missingok
+      notifempty
+    }
+  path: /etc/logrotate.d/ansible-pull
+  owner: root:root
+  permissions: '0644'
+- path: /etc/ansible/hosts.digitalocean.yaml
+  owner: root:root
+  permissions: '0644'
+  content: |
+    ---
+    plugin: community.digitalocean.digitalocean
+    attributes:
+      - id
+      - name
+      - memory
+      - vcpus
+      - disk
+      - size
+      - image
+      - networks
+      - volume_ids
+      - tags
+      - region
+    keyed_groups:
+      - key: do_region.slug
+        prefix: 'region'
+        separator: '_'
+      - key: distro
+        prefix: 'distro'
+        separator: '_'
+      - key: class
+        prefix: 'class'
+        separator: '_'
+      - key: do_tags | lower
+        prefix: ''
+        separator: ''
+    compose:
+      ansible_host: do_networks.v4 | selectattr('type','eq','public') | map(attribute='ip_address') | first
+      class: do_size.description | lower
+      distro: do_image.distribution | lower
+- path: /opt/ansible/modules/terraform_backend_info.py
+  owner: root:root
+  permissions: '0644'
+  content: |
+    #!/usr/bin/env python3
+    # -*- coding: utf-8 -*-
+
+    # Copyright: (c) 2021, Nigel Williams-Lucas <nigel.williamslucas@gmail.com>
+    # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+    from __future__ import (absolute_import, division, print_function)
+    import json
+    import boto3
+    import pprint
+    from ansible.module_utils.basic import *
+
+    __metaclass__ = type
+
+    ANSIBLE_METADATA = {
+        'status': ['preview'],
+        'supported_by': 'community',
+        'metadata_version': '1.1'
+    }
+
+    DOCUMENTATION = '''
+    ---
+    module: terraform_backend_info
+    short_description: Get output variables from Terraform s3 backend.
+    description:
+      - Get output variables from Terraform s3 backend.
+    version_added: "2.4"
+    author: Nigel Williams-Lucas
+    options:
+      bucket:
+        description:
+          - Name of the s3 bucket where Terraform state is stored.
+        required: true
+      object:
+        description:
+          - Name of the s3 object where Terraform state is stored.
+        required: true
+      aws_profile:
+        description:
+          - Name of the aws profile to be used.
+        default: "default"
+      aws_access_key:
+        description:
+          - AWS access key to be used for bucket access.
+          - If declared aws_profile option is ignored and aws_secret_access_key option is required.
+        default: ""
+      aws_secret_access_key:
+        description:
+          - AWS secret access key to be used for bucket access.
+          - If declared aws_profile option is ignored and aws_access_key option is required.
+        default: ""
+      aws_region:
+        description:
+          - ID of AWS region to connect to s3 bucket from.
+        default: "us-east-1"
+    ...
+    '''
+
+    EXAMPLES = '''
+    ---
+    - name: Get Terraform EFS backend variables
+      fetch_terraform_backend_outputs:
+        bucket: "example-bucket"
+        object: "storage/terraform.tfstate"
+      register: terraform_storage
+
+    - name: Mount EFS storage
+      mount:
+        state: "mounted"
+      path: /mnt
+        src: "{{ terraform_storage.vars.efs_id }}"
+        fstype: efs
+        opts: rw
+    ...
+    '''
+
+    RETURN = '''
+    ---
+    vars:
+      description:
+        - Outputs from Terraform backend in JSON format are returned upon successful execution.
+      type: json
+      returned: success
+      version_added: "2.4"
+    ...
+    '''
+
+
+    def format_data(data):
+        pretty_data = json.loads(data)
+        result = {}
+        permanent = pretty_data['outputs']
+
+        for key, value in permanent.items():
+            result[key] = value['value']
+
+        return result
+
+
+    def backend_pull(client, data):
+        s3 = client.resource('s3')
+        obj = s3.Object(data['bucket'], data['object'])
+        raw_data = obj.get()['Body'].read().decode('utf-8')
+        return format_data(raw_data)
+
+
+    def build_client(data, ansible_module):
+        aws_access_key = data['aws_access_key']
+        aws_secret_access_key = data['aws_secret_access_key']
+        aws_profile = data['aws_profile']
+        aws_region = data['aws_region']
+        if aws_access_key and aws_secret_access_key:
+            return boto3.session.Session(
+                aws_access_key_id=aws_access_key,
+                aws_secret_access_key=aws_secret_access_key,
+                region_name=aws_region)
+        elif not aws_access_key and not aws_secret_access_key:
+            return boto3.session.Session(profile_name=aws_profile)
+        else:
+            return False
+
+
+    def run_module():
+        module_args = dict(
+            bucket=dict(type='str', required=True),
+            object=dict(type='str', required=True),
+            aws_profile=dict(type='str', default="default"),
+            aws_access_key=dict(type='str', default=""),
+            aws_secret_access_key=dict(type='str', default=""),
+            aws_region=dict(type='str', default="us-east-1")
+        )
+
+        result = dict(
+            changed=False,
+            orginal_message='',
+            message='',
+            my_useful_info={},
+        )
+
+        module = AnsibleModule(argument_spec=module_args, supports_check_mode=True)
+
+        if module.check_mode:
+            module.exit_json(**result)
+
+        s3_client = build_client(module.params, module)
+
+        if s3_client:
+            result = backend_pull(s3_client, module.params)
+            module.exit_json(changed=False, vars=result)
+        else:
+            module.fail_json(msg="Wrong AWS credentials")
+
+
+    def main():
+        run_module()
+
+
+    if __name__ == '__main__':
+        main()
+- content: |
+    export NODE_TYPE="NOMAD-CONSUL"
+    export DO_API_TOKEN="#{ENV['DIGITALOCEAN_API_TOKEN']}"
+
+  path: /etc/profile.d/provisioning.sh
+  owner: root:root
+  permissions: '0755'
+
+runcmd:
+- [modprobe, br_netfilter]
+- [systemctl, enable, setup-network-environment.service]
+- [systemctl, start, setup-network-environment.service]
+- [systemctl, enable, --now, cockpit.socket]
+- [systemctl, stop, network-manager.service]
+- [systemctl, disable, network-manager.service]
+- snap install --classic certbot
+- snap set certbot trust-plugin-with-root=ok
+- snap install certbot-dns-cloudflare
+- ln -s $(which certbot) /usr/bin/certbot
+- /usr/bin/certbot register --email nigel.williamslucas@gmail.com --no-eff-email --agree-tos
+# - /usr/bin/certbot certonly --dns-cloudflare --dns-cloudflare-credentials /opt/bootstrap/acme/cf_creds.ini -d nc-krdxgsfwzis.nwlnexus.net
+# - /etc/letsencrypt/renewal-hooks/post/001-restart-cockpit.sh
+- pip3 install --no-cache-dir --quiet --upgrade setuptools
+- pip3 install --no-cache-dir --quiet --upgrade ansible==4.0.0
+- pip3 install --no-cache-dir --quiet --upgrade boto3
+- ansible-galaxy collection install -p /opt/ansible/collections community.general
+- ansible-galaxy collection install -p /opt/ansible/collections community.digitalocean
+- sh -c 'echo "sudo apt autoremove -y" >> /etc/cron.monthly/autoremove'
+- chmod +x /etc/cron.monthly/autoremove
+- apt autoremove -y
+
+final_message: "The system is prepped, after $UPTIME seconds"
+output: {all: '| tee -a /var/log/cloud-init-output.log'}
+EOCLOUD
+
+Vagrant.require_version ">= 1.8.0"
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.env.enable
+  config.ssh.forward_agent = true
+
+  config.vm.box = ENV['BOX_NAME'] || DEFAULT_BOX_NAME
+  config.vm.box_url = ENV['BOX_URL'] || DEFAULT_BOX_URL
+  # config.vm.cloud_init :user_data, content_type: "text/cloud-config", path: File.join(File.dirname(__FILE__),"/testing/cloud-init.yml")
+  config.vm.cloud_init :user_data, content_type: "text/cloud-config", inline: $cloud_init
+
+  config.vm.synced_folder ".", "/vagrant", type: "rsync",
+    rsync__exclude: ".git/",
+    rsync__auto: true
+
+  config.vm.provider :virtualbox do |box|
+    box.customize ["modifyvm", :id, "--memory", BOX_MEM]
+    box.customize ["modifyvm", :id, "--ioapic", "on"]
+    box.customize ["modifyvm", :id, "--cpus", "2"]
+    box.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+    box.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+  end
+
+  if ENV['NOMAD_DOCKER_ENABLE'] == "true"
+    config.vm.provision "docker"
+  end
+
+  config.vm.provision :hosts do |provisioner|
+    provisioner.add_host '10.1.42.71', ['nomad-consul.local']
+    provisioner.add_host '10.1.42.72', ['vault.local']
+    provisioner.add_host '10.1.42.73', ['ubnt.local']
+  end
+
+  config.vm.provision :shell, path: "./scripts/ubuntu/update.sh"
+
+  # config.vm.provision :reload
+
+  config.vm.provision :shell, path: "./scripts/common/motd.sh"
+  config.vm.provision :shell, path: "./scripts/common/sshd.sh"
+  config.vm.provision :shell, path: "./scripts/ubuntu/sudoers.sh"
+  config.vm.provision :shell, path: "./scripts/ubuntu/packages.sh", env: {ANSIBLE_VERSION: ENV['PKR_VAR_ansible_version'], BUILD_TYPE: 'NOMAD_CONSUL'}
+  config.vm.provision :shell, path: "./scripts/setup-ansible.sh", env: {ANSIBLE_VERSION: ENV['PKR_VAR_ansible_version'], BUILD_TYPE: 'NOMAD_CONSUL'}
+
+  config.vm.define "nomad_consul" do |nomad_consul|
+    nomad_consul.vm.provider :virtualbox do |v|
+      v.name = "nomad_consul"
+    end
+
+    nomad_consul.vm.network :private_network, ip: "10.1.42.71"
+    nomad_consul.vm.hostname = "nomad-consul.local"
+
+    nomad_consul.vm.provision :shell, path: "./scripts/install-consul.sh", env: {NOMAD_VERSION: ENV['PKR_VAR_nomad_version'], CONSUL_VERSION: ENV['PKR_VAR_consul_version']}
+    nomad_consul.vm.provision :shell, path: "./scripts/install-nomad.sh", env: {NOMAD_VERSION: ENV['PKR_VAR_nomad_version'], CONSUL_VERSION: ENV['PKR_VAR_consul_version']}
+  end
+
+  config.vm.define "vault" do |vault|
+    vault.vm.provider :virtualbox do |v|
+      v.name = "vault"
+    end
+    vault.vm.network :private_network, ip: "10.1.42.72"
+    vault.vm.hostname = "vault.local"
+
+    vault.vm.provision :shell, path: "./scripts/install-vault.sh", env: {VAULT_VERSION: ENV['PKR_VAR_vault_version']}
+
+  end
+
+  config.vm.define "ubnt" do |ubnt|
+    ubnt.vm.provider :virtualbox do |v|
+      v.name = "ubnt"
+    end
+    ubnt.vm.network :private_network, ip: "10.1.42.73"
+    ubnt.vm.hostname = "ubnt.local"
+
+    ubnt.vm.provision :shell, path: "./scripts/install-unifi.sh", env: {UNIFI_VERSION: ENV['PKR_VAR_unifi_version']}
+
+  end
+
+  config.vm.provision :shell, path: "./scripts/common/minimize.sh", env: {PACKER_BUILDER_TYPE: "vbox"}
+end
