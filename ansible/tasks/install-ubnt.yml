@@ -1,0 +1,5 @@
+- name: Add Ubiquiti repository
+  ansible.builtin.apt_repository:
+    repo:
+    state: present
+    filename: 100-unifios

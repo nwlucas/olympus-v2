@@ -1,8 +1,0 @@
----
-- name: Install Vault
-  hosts: vault_servers
-  gather_facts: true
-
-- name: Install Nomad & Consul clients
-  hosts: all
-  gather_facts: true

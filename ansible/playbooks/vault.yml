@@ -1,0 +1,4 @@
+---
+- name: Install Vault Server
+  hosts: vault_servers
+  gather_facts: true

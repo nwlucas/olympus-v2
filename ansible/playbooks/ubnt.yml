@@ -1,0 +1,4 @@
+---
+- name: Install UBNT Server
+  hosts: ubnt_servers
+  gather_facts: true

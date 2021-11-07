@@ -1,3 +1,0 @@
----
-- name: Get binary
-  ansible.builtin.get_url:
