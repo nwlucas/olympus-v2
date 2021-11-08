@@ -1,0 +1,8 @@
+---
+ubnt_repo: "https://www.ui.com/downloads/unifi/debian stable ubiquiti"
+ubnt_key_url: "https://dl.ui.com/unifi"
+ubnt_keyfile: "unifi-repo.gpg"
+
+mongodb_repo: "https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse"
+mongodb_key_url: "https://www.mongodb.org/static/pgp"
+mongodb_keyfile: "server-5.0.asc"

@@ -1,5 +1,53 @@
+- name: Install packages only when the apt process is not locked
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+    autoremove: true
+    autoclean: true
+  register: apt_action
+  retries: 100
+  until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+  loop:
+    - apt-transport-https
+    - haveged
+    - openjdk-8-jre-headless
+    - gnupg
+
+- name: Add Ubiquiti repository key
+  ansible.builtin.get_url:
+    url: "{{ ubnt_key_url }}/{{ ubnt_keyfile }}"
+    dest: "/etc/apt/trusted.gpg.d/{{ ubnt_keyfile }}"
+
 - name: Add Ubiquiti repository
   ansible.builtin.apt_repository:
-    repo:
+    repo: "deb [ arch=i386 signed-by=/etc/apt/trusted.gpg.d/{{ ubnt_keyfile }} ] {{ ubnt_repo }}"
     state: present
     filename: 100-unifios
+
+- name: Add MongoDB repository key
+  ansible.builtin.get_url:
+    url: "{{ mongodb_key_url }}/{{ mongodb_keyfile }}"
+    dest: "/etc/apt/trusted.gpg.d/{{ mongodb_keyfile }}"
+
+- name: Add MongoDB repository
+  ansible.builtin.apt_repository:
+    repo: "deb [ arch=amd64,arm64 signed-by=/etc/apt/trusted.gpg.d/{{ mongodb_keyfile }} ] {{ mongodb_repo }}"
+    state: present
+    filename: 101-mongodb
+
+- name: Install packages only when the apt process is not locked
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+    autoremove: true
+    autoclean: true
+  register: apt_action
+  retries: 100
+  until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+  loop:
+    - mongodb-org
+    - unifi
