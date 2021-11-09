@@ -1,19 +1,18 @@
 [nomad_servers]
-192.168.248.2[1:3]
+rpi-[01:03].nwlnexus.net
 
 [vault_servers]
-192.168.248.2[1:3]
+rpi-[01:03].nwlnexus.net
 
 [consul_servers]
-192.168.248.2[1:3]
+rpi-[01:03].nwlnexus.net
 
 [ubnt_servers]
-192.168.248.26
+rpi-06.nwlnexus.net
 
 [app_servers]
-192.168.248.2[4:5]
-192.168.253.3
-192.168.253.4
+rpi-[04:05].nwlnexus.net
+janus-[01:02].nwlnexus.net
 
 [dhcp_server]
-192.168.253.2
+hades.nwlnexus.net

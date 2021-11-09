@@ -11,7 +11,7 @@
     # TODO: Move this service template so that it points to the correct binary download based on arch.
     - name: Place network environment file
       ansible.builtin.template:
-        src: './templates/network-env.j2'
+        src: "./templates/network-env_{{ ansible_facts['architecture'] }}.j2"
         dest: '/etc/systemd/system/setup-network-environment.service'
       notify:
         - reload systemd

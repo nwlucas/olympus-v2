@@ -1,5 +1,19 @@
-- name: Install packages only when the apt process is not locked
-  apt:
+- name: ddclient | install packages only when the apt process is not locked
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+    autoremove: true
+    autoclean: true
+  register: apt_action
+  retries: 100
+  until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+  loop:
+    - unzip
+
+- name: ddclient | install packages only when the apt process is not locked
+  ansible.builtin.apt:
     name: "{{ item }}"
     state: present
     update_cache: true
@@ -11,3 +25,31 @@
   until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
   loop:
     - ddclient={{ ddclient_version }}*
+  when: ansible_facts['architecture'] == 'aarch64'
+
+- name: ddclient | manual install
+  block:
+    - name: ddclient | test for binary
+      ansible.builtin.stat:
+        path: "{{ ddclient_path }}/ddclient"
+      register: ddclient_binary
+    - name: ddclient | download archive
+      ansible.builtin.get_url:
+        url: "{{ ddclient_repo_url }}/v{{ ddclient_version }}.tar.gz"
+        dest: /tmp/ddclient-v{{ ddclient_version }}.tar.gz
+      when: not ddclient_binary.stat.exists
+    - name: ddclient | test for archive
+      ansible.builtin.stat:
+        path: /tmp/ddclient-v{{ ddclient_version }}.tar.gz
+      register: ddclient_archive
+    - name: ddclient | unpack archive
+      ansible.builtin.unarchive:
+        src: /tmp/ddclient-v{{ ddclient_version }}.tar.gz
+        dest: "{{ ddclient_path }}"
+        creates: "{{ ddclient_path }}/ddclient"
+        extra_opts:
+          - --strip=1
+          - --no-anchored
+          - ddclient
+      when: ddclient_archive.stat.exists
+  when: ansible_facts['architecture'] == 'x86_64'
