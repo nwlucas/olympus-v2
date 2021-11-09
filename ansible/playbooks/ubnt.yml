@@ -4,8 +4,4 @@
   gather_facts: true
   become: true
   tasks:
-    - include_tasks: "../tasks/install-ddclient.yml"
-      when: install_ddclient is defined and install_ddclient
-    - include_tasks: "../tasks/install-certbot.yml"
-      when: install_certbot is defined and install_certbot
     - import_tasks: "../tasks/install-ubnt.yml"

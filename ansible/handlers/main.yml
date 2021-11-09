@@ -1,0 +1,9 @@
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen:
+    - "restart consul service"
+    - "restart nomad service"
+    - "restart vault service"
+    - "restart ddclient service"
+    - "restart certbot service"

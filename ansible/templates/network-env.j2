@@ -1,0 +1,20 @@
+[Unit]
+Description=Setup Network Environment
+Documentation=https://github.com/kelseyhightower/setup-network-environment
+Requires=systemd-networkd-wait-online.service
+After=systemd-networkd-wait-online.service
+
+[Service]
+Environment=MKDIR_PATH=$(which mkdir)
+Environment=CHMOD_PATH=$(which chmod)
+Environment=WGET_PATH=$(which wget)
+ExecStartPre=-${MKDIR_PATH} -p /opt/bin
+ExecStartPre=${WGET_PATH} -N -P /opt/bin https://github.com/kelseyhightower/setup-network-environment/releases/download/1.0.1/setup-network-environment
+
+ExecStartPre=${CHMOD_PATH} +x /opt/bin/setup-network-environment
+ExecStart=/opt/bin/setup-network-environment
+RemainAfterExit=yes
+Type=oneshot
+
+[Install]
+WantedBy=multi-user.target

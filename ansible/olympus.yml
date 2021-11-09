@@ -1,0 +1,45 @@
+---
+- name: Host Preparation
+  hosts: all
+  gather_facts: true
+  become: true
+  pre_tasks:
+    - name: Set correct Timezone
+      community.general.timezone:
+        name: America/New_York
+    - name: Place network environment file
+      ansible.builtin.template:
+        src: './templates/network-env.j2'
+        dest: '/etc/systemd/system/setup-network-environment.service'
+      notify:
+        - reload systemd
+    - name: Force all notified handlers to run at this point, not waiting for normal sync points
+      meta: flush_handlers
+    - name: Enable and start network environment service
+      ansible.builtin.systemd:
+        name: setup-network-environment.service
+        state: started
+        enabled: true
+  tasks:
+    - include_tasks: './tasks/install-ddclient.yml'
+      when: install_ddclient is defined and install_ddclient
+    - include_tasks: './tasks/install-certbot.yml'
+      when: install_certbot is defined and install_certbot
+  handlers:
+    - import_tasks: ./handlers/main.yml
+
+# - name: Install Ubiquiti Controller
+#   import_playbook: './playbooks/ubnt.yml'
+
+- name: Vault Cluster
+  import_playbook: './playbooks/vault.yml'
+
+- name: Consul Cluster
+  import_playbook: './playbooks/consul.yml'
+
+- name: Nomad Cluster
+  import_playbook: './playbooks/nomad.yml'
+
+- name: Install Nomad & Consul agents on application servers
+  hosts: app_servers
+  gather_facts: true
