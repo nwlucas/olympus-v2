@@ -2,3 +2,4 @@
 ansible_user: ubuntu
 
 install_ddclient: true
+ddclient_version: 3.9.1

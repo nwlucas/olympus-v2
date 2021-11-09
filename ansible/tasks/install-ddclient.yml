@@ -1,0 +1,13 @@
+- name: Install packages only when the apt process is not locked
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+    autoremove: true
+    autoclean: true
+  register: apt_action
+  retries: 100
+  until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+  loop:
+    - ddclient={{ ddclient_version }}*
