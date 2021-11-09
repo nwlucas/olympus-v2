@@ -3,10 +3,12 @@
   hosts: all
   gather_facts: true
   become: true
-  pre_tasks:
+  tasks:
+    - ansible.builtin.debug: var=ansible_facts['architecture']
     - name: Set correct Timezone
       community.general.timezone:
         name: America/New_York
+    # TODO: Move this service template so that it points to the correct binary download based on arch.
     - name: Place network environment file
       ansible.builtin.template:
         src: './templates/network-env.j2'
@@ -15,12 +17,11 @@
         - reload systemd
     - name: Force all notified handlers to run at this point, not waiting for normal sync points
       meta: flush_handlers
-    - name: Enable and start network environment service
-      ansible.builtin.systemd:
-        name: setup-network-environment.service
-        state: started
-        enabled: true
-  tasks:
+    # - name: Enable and start network environment service
+    #   ansible.builtin.systemd:
+    #     name: setup-network-environment.service
+    #     state: started
+    #     enabled: true
     - include_tasks: './tasks/install-ddclient.yml'
       when: install_ddclient is defined and install_ddclient
     - include_tasks: './tasks/install-certbot.yml'
@@ -28,6 +29,7 @@
   handlers:
     - import_tasks: ./handlers/main.yml
 
+# TODO: Work thorugh installing UnifiOS on ARM. Current blocker is it does NOT recognize separately installed MongoDB
 # - name: Install Ubiquiti Controller
 #   import_playbook: './playbooks/ubnt.yml'
 
