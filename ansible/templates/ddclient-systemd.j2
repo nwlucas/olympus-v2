@@ -5,7 +5,7 @@ After=systemd-networkd-wait-online.service
 
 [Service]
 Type=forking
-PIDFile=/var/run/ddclient.pid
+PIDFile=/run/ddclient.pid
 {% if ansible_facts['architecture'] == "aarch64" -%}
 ExecStart=/usr/sbin/ddclient
 {% else -%}

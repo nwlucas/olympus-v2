@@ -1,0 +1,46 @@
+- name: certbot | ensure apt repository is removed
+  ansible.builtin.apt_repository:
+    repo: "ppa:certbot/certbot"
+    state: absent
+
+- name: certbot | install certbot
+  community.general.snap:
+    name: certbot
+    classic: true
+
+- name: certbot | enable plugins
+  ansible.builtin.command: snap set certbot trust-plugin-with-root=ok
+  register: certbot_output
+  changed_when: false
+
+- name: certbot | install certbot cloudflare plugin
+  community.general.snap:
+    name: certbot-dns-cloudflare
+
+- name: certbot | create symbolic link for certbot
+  ansible.builtin.file:
+    src: "/snap/bin/certbot"
+    dest: "/usr/bin/certbot"
+    state: link
+
+- name: certbot | register account
+  ansible.builtin.command:
+    cmd: /usr/bin/certbot register --email {{ cf_email }} --no-eff-email --agree-tos
+    creates: /etc/letsencrypt/accounts/acme-v02.api.letsencrypt.org
+
+- name: certbot | place certbot ini dir for dns plugins
+  ansible.builtin.file:
+    path: "{{ certbot_ini_dir }}"
+    mode: "0644"
+    state: directory
+
+- name: certbot | place configuration file
+  ansible.builtin.template:
+    src: "./templates/certbot_dns.j2"
+    dest: "{{ certbot_ini_dir }}/cf-creds.ini"
+    mode: 0600
+
+- name: certbot | request and register cert
+  ansible.builtin.command:
+    cmd: /usr/bin/certbot certonly --dns-cloudflare --dns-cloudflare-credentials {{ certbot_ini_dir }}/cf-creds.ini -d {{ inventory_hostname }}
+    creates: /etc/letsencrypt/live/{{ inventory_hostname }}/fullchain.pem

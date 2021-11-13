@@ -7,7 +7,7 @@ daemon=300
 ssl=yes
 syslog=yes
 
-pid=/var/run/ddclient.pid
+pid=/run/ddclient.pid
 cache=/tmp/ddclient.cache
 
 ##
@@ -15,6 +15,7 @@ cache=/tmp/ddclient.cache
 ##
 protocol=cloudflare
 use=if, if={{ ansible_facts['default_ipv4']['interface'] }}
+login=token
 password={{ cf_api_token }}
-zone=domain.tld
+zone={{ inventory_hostname.split(".")[1:]|join(".")|lower }}
 {{ inventory_hostname }}

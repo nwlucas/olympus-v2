@@ -5,3 +5,6 @@ install_ddclient: true
 ddclient_version: 3.9.1
 ddclient_repo_url: "https://github.com/ddclient/ddclient/archive/"
 ddclient_path: "/usr/local/bin"
+
+install_certbot: true
+certbot_ini_dir: "/opt/acme"

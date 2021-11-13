@@ -7,6 +7,10 @@
     - name: Set correct Timezone
       community.general.timezone:
         name: America/New_York
+    - name: Set correct Hostname
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname }}"
+        use: systemd
     # TODO: Move this service template so that it points to the correct binary download based on arch.
     - name: Place network environment file
       ansible.builtin.template:
