@@ -1,0 +1,15 @@
+[Unit]
+Description=Dynamic DNS Update Client
+Requires=systemd-networkd-wait-online.service
+After=systemd-networkd-wait-online.service
+
+[Service]
+Type=forking
+PIDFile=/var/run/ddclient.pid
+{% if ansible_facts['architecture'] == "aarch64" -%}
+ExecStart=/usr/sbin/ddclient
+{% else -%}
+ExecStart={{ ddclient_path }}/ddclient
+{% endif %}
+[Install]
+WantedBy=multi-user.target

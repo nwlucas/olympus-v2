@@ -4,15 +4,15 @@
   gather_facts: true
   become: true
   tasks:
-    - ansible.builtin.debug: var=ansible_facts['architecture']
     - name: Set correct Timezone
       community.general.timezone:
         name: America/New_York
     # TODO: Move this service template so that it points to the correct binary download based on arch.
     - name: Place network environment file
       ansible.builtin.template:
-        src: "./templates/network-env_{{ ansible_facts['architecture'] }}.j2"
-        dest: '/etc/systemd/system/setup-network-environment.service'
+        src: "./templates/network-env.j2"
+        dest: "/etc/systemd/system/setup-network-environment.service"
+        mode: 0644
       notify:
         - reload systemd
     - name: Force all notified handlers to run at this point, not waiting for normal sync points
@@ -22,9 +22,9 @@
     #     name: setup-network-environment.service
     #     state: started
     #     enabled: true
-    - include_tasks: './tasks/install-ddclient.yml'
+    - include_tasks: "./tasks/install-ddclient.yml"
       when: install_ddclient is defined and install_ddclient
-    - include_tasks: './tasks/install-certbot.yml'
+    - include_tasks: "./tasks/install-certbot.yml"
       when: install_certbot is defined and install_certbot
   handlers:
     - import_tasks: ./handlers/main.yml
@@ -34,13 +34,13 @@
 #   import_playbook: './playbooks/ubnt.yml'
 
 - name: Vault Cluster
-  import_playbook: './playbooks/vault.yml'
+  import_playbook: "./playbooks/vault.yml"
 
 - name: Consul Cluster
-  import_playbook: './playbooks/consul.yml'
+  import_playbook: "./playbooks/consul.yml"
 
 - name: Nomad Cluster
-  import_playbook: './playbooks/nomad.yml'
+  import_playbook: "./playbooks/nomad.yml"
 
 - name: Install Nomad & Consul agents on application servers
   hosts: app_servers

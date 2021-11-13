@@ -11,6 +11,9 @@
   until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
   loop:
     - unzip
+    - net-tools
+    - libio-socket-ssl-perl
+    - libdata-validate-ip-perl
 
 - name: ddclient | install packages only when the apt process is not locked
   ansible.builtin.apt:
@@ -44,6 +47,7 @@
       register: ddclient_archive
     - name: ddclient | unpack archive
       ansible.builtin.unarchive:
+        remote_src: true
         src: /tmp/ddclient-v{{ ddclient_version }}.tar.gz
         dest: "{{ ddclient_path }}"
         creates: "{{ ddclient_path }}/ddclient"
@@ -52,4 +56,38 @@
           - --no-anchored
           - ddclient
       when: ddclient_archive.stat.exists
+    - name: ddclient | remove the archive
+      ansible.builtin.file:
+        path: /tmp/ddclient-v{{ ddclient_version }}.tar.gz
+        state: absent
+      when: ddclient_archive.stat.exists
+    - name: ddclient | create config directory
+      ansible.builtin.file:
+        path: /etc/ddclient
+        mode: 0755
+        state: directory
   when: ansible_facts['architecture'] == 'x86_64'
+
+- name: ddclient | Place configuration file
+  ansible.builtin.template:
+    src: "./templates/ddclient.j2"
+    dest: "{% if ansible_facts['architecture'] == 'aarch64' %}/etc/ddclient.conf{% else %}/etc/ddclient/ddclient.conf{% endif %}"
+    mode: 0600
+  notify:
+    - restart ddclient service
+
+- name: ddclient | Place defaults file
+  ansible.builtin.template:
+    src: "./templates/ddclient-default.j2"
+    dest: "/etc/default/ddclient"
+    mode: 0644
+  notify:
+    - restart ddclient service
+
+- name: ddclient | Place systemd unit file
+  ansible.builtin.template:
+    src: "./templates/ddclient-systemd.j2"
+    dest: "/etc/systemd/system/ddclient.service"
+    mode: 0644
+  notify:
+    - restart ddclient service

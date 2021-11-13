@@ -1,4 +1,6 @@
 {
+  "ansible.vault.executablePath": "ansible-vault",
+  "ansibleVault.keyfile": "/Users/nwilliams-lucas/projects/personal/olympus-v2/ansible/.vault_pass",
   "files.associations": {
     "**/defaults/**/*.yml": "jinja-yaml",
     "**/group_vars/**/*": "jinja-yaml",

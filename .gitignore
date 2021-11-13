@@ -27,3 +27,4 @@ ssh_keys/
 **cloud-init.yml
 **.vagrant
 ansible/collections/
+**/.vault_pass

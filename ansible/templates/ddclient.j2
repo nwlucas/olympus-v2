@@ -1,0 +1,20 @@
+# Configuration file for ddclient
+
+##
+## Global Config
+##
+daemon=300
+ssl=yes
+syslog=yes
+
+pid=/var/run/ddclient.pid
+cache=/tmp/ddclient.cache
+
+##
+## {{ inventory_hostname }} - Cloudflare
+##
+protocol=cloudflare
+use=if, if={{ ansible_facts['default_ipv4']['interface'] }}
+password={{ cf_api_token }}
+zone=domain.tld
+{{ inventory_hostname }}
