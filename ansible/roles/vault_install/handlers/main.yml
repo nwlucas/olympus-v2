@@ -1,0 +1,9 @@
+---
+# handlers file for vault-install
+
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen:
+    - reload_systemd
+    - systemd_reload

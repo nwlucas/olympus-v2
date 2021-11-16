@@ -1,0 +1,12 @@
+---
+- name: get service status
+  ansible.builtin.service_facts:
+  register: services_state
+
+- name: stop vault service
+  ansible.builtin.systemd:
+    name: vault.service
+    state: stop
+  when:
+    - "'vault' in services_state.ansible_facts.services"
+    - services_state.ansible_facts.services["vault.service"].state == "running"

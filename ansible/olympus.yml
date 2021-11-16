@@ -1,51 +1,89 @@
 ---
-- name: Host Preparation
+- name: host preparation
   hosts: all
   gather_facts: true
   become: true
+  handlers:
+    - import_tasks: ./handlers/main.yml
+  roles:
+    - { name: "ddclient_install", when: install_ddclient }
+    - { name: "certbot_install", when: install_certbot }
   tasks:
-    - name: Set correct Timezone
+    - name: set correct timezone
       community.general.timezone:
         name: America/New_York
-    - name: Set correct Hostname
+    - name: set correct hostname
       ansible.builtin.hostname:
         name: "{{ inventory_hostname }}"
         use: systemd
     # TODO: Move this service template so that it points to the correct binary download based on arch.
-    - name: Place network environment file
+    - name: place network environment file
       ansible.builtin.template:
         src: "./templates/network-env.j2"
         dest: "/etc/systemd/system/setup-network-environment.service"
         mode: 0644
       notify:
         - reload systemd
-    - name: Force all notified handlers to run at this point, not waiting for normal sync points
+    - name: force all notified handlers to run at this point, not waiting for normal sync points
       meta: flush_handlers
     # - name: Enable and start network environment service
     #   ansible.builtin.systemd:
     #     name: setup-network-environment.service
     #     state: started
     #     enabled: true
-    - include_tasks: "./tasks/install-ddclient.yml"
-      when: install_ddclient is defined and install_ddclient
-    - include_tasks: "./tasks/install-certbot.yml"
-      when: install_certbot is defined and install_certbot
-  handlers:
-    - import_tasks: ./handlers/main.yml
+  tags:
+    - host-prep
+    - ddclient-install
+    - certbot-install
 
 # TODO: Work thorugh installing UnifiOS on ARM. Current blocker is it does NOT recognize separately installed MongoDB
-# - name: Install Ubiquiti Controller
-#   import_playbook: './playbooks/ubnt.yml'
+- name: install ubnt node
+  hosts: ubnt_servers
+  gather_facts: true
+  become: true
+  roles:
+    - ubnt_install
+  tags:
+    - ubnt-install
 
-- name: Vault Cluster
-  import_playbook: "./playbooks/vault.yml"
+- name: install vault cluster
+  hosts: vault_servers
+  gather_facts: true
+  become: true
+  roles:
+    - vault_install
+    - vault_init
+    - vault_unseal
+  tags:
+    - vault
+    - vault-install
+    - vault-init
+    - vault-unseal
+    - hashi-stack
 
-- name: Consul Cluster
-  import_playbook: "./playbooks/consul.yml"
+- name: install consul cluster
+  hosts: consul_servers
+  gather_facts: true
+  become: true
+  roles:
+    - consul_install
+  tags:
+    - consul-install
+    - hashi-stack
 
-- name: Nomad Cluster
-  import_playbook: "./playbooks/nomad.yml"
+- name: install nomad cluster
+  hosts: nomad_servers
+  gather_facts: true
+  become: true
+  roles:
+    - nomad_install
+  tags:
+    - nomad-install
+    - hashi-stack
 
-- name: Install Nomad & Consul agents on application servers
+- name: install nomad & consul agents on application servers
   hosts: app_servers
   gather_facts: true
+  become: true
+  handlers:
+    - import_tasks: ./handlers/main.yml

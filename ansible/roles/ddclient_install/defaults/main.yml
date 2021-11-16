@@ -1,0 +1,6 @@
+---
+# defaults file for ddclient_install
+
+ddclient_version: 3.9.1
+ddclient_repo_url: "https://github.com/ddclient/ddclient/archive/"
+ddclient_path: "/usr/local/bin"

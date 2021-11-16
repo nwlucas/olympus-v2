@@ -1,0 +1,22 @@
+---
+# defaults file for vault-install
+vault_install_debug: false
+hashi_binary_dir: "/usr/local/bin"
+
+vault_install_override: false
+
+vault_version: "1.8.5"
+vault_user: "vault"
+vault_group: "vault"
+vault_install_dependencies: ["unzip"]
+vault_config_path: "/opt/vault/vault.hcl"
+
+vault_archive_url: "https://releases.hashicorp.com/vault/{{ vault_version }}"
+
+vault_dirs:
+  - { dir: "{{ hashi_binary_dir }}", owner: "root", group: "root" }
+  - {
+      dir: "{{ vault_config_path | dirname }}",
+      owner: "{{ vault_user }}",
+      group: "{{ vault_group }}",
+    }

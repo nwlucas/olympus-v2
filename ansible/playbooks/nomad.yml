@@ -1,4 +1,0 @@
----
-- name: Install Nomad Server
-  hosts: nomad_servers
-  gather_facts: true

@@ -1,0 +1,4 @@
+---
+# defaults file for certbot_install
+
+certbot_ini_dir: "/opt/acme"

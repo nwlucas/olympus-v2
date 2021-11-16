@@ -16,3 +16,17 @@ janus-[01:02].nwlnexus.net
 
 [dhcp_server]
 hades.nwlnexus.net
+
+[rpi_servers]
+rpi-[01:06].nwlnexus.net
+
+[supermicro_servers]
+hades.nwlnexus.net
+
+[dell_servers]
+janus-[01:02].nwlnexus.net
+
+[hashi_servers:children]
+nomad_servers
+vault_servers
+consul_servers

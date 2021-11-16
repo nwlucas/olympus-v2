@@ -1,9 +1,3 @@
-vault_install: true
-vault_version: latest
-
-vault_service:
-  enabled: false
-  masked: false
-  user: vault
-
-vault_config: {}
+vault_install_debug: true
+vault_install_override: true
+vault_version: 1.8.4

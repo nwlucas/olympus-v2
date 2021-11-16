@@ -1,0 +1,92 @@
+---
+# tasks file for vault-install
+
+- name: Include check/asserts
+  ansible.builtin.import_tasks: ./vault_asserts.yml
+
+- name: test for binary
+  ansible.builtin.stat:
+    path: "{{ hashi_binary_dir }}/vault"
+  register: vault_binary
+
+- name: test for symlink to binary
+  ansible.builtin.stat:
+    path: "/usr/local/bin/vault"
+  register: vault_binary_link
+  when: hashi_binary_dir != "/usr/local/bin"
+
+- name: register binary version
+  ansible.builtin.command:
+    cmd: /usr/local/bin/vault -v
+  register: vault_binary_version
+  changed_when: false
+  when: vault_binary_link.stat.exists
+
+- name: set the discovered binary version
+  ansible.builtin.set_fact:
+    _discovered_binary_version: "{{ vault_binary_version.stdout.split(' ')[1][1:] }}"
+  when: vault_binary_link.stat.exists
+
+- name: determine if to install or upgrade vault binary part 1
+  ansible.builtin.set_fact:
+    _install_vault: true
+  when: (not vault_binary_link.stat.exists) or (vault_binary_link.stat.exists
+    and _discovered_binary_version is not version(vault_version,operator='eq',version_type='semver'))
+    or vault_install_override
+
+- name: determine if to install or upgrade vault binary part 2
+  ansible.builtin.set_fact:
+    _install_vault: false
+  when: vault_binary_link.stat.exists and _discovered_binary_version is version(vault_version,operator='eq',version_type='semver')
+
+- name: testing variable vault_binary_version
+  ansible.builtin.debug:
+    var: _install_vault
+  when: vault_install_debug
+
+- name: testing variable vault_version to be installed
+  ansible.builtin.debug:
+    var: vault_version
+  when: vault_install_debug and _install_vault
+
+- name: testing variable vault_archive_url to get vault binary from
+  ansible.builtin.debug:
+    var: vault_archive_url
+  when: vault_install_debug and _install_vault
+
+- name: preparing for vault upgrade
+  block:
+    - name: get service status
+      ansible.builtin.service_facts:
+      register: services_state
+
+    - name: stop vault service
+      ansible.builtin.systemd:
+        name: vault.service
+        state: stop
+      when:
+        - "'vault' in services_state.ansible_facts.services"
+        - services_state.ansible_facts.services["vault.service"].state == "running"
+  when:
+    - vault_binary_link.stat.exists
+    - _discovered_binary_version is version(vault_version,operator='lt',version_type='semver') or vault_install_override
+
+- name: install vault
+  ansible.builtin.include_tasks: ./install.yml
+  when: _install_vault or vault_install_override
+
+- name: set binary capabilities
+  community.general.capabilities:
+    path: "{{ hashi_binary_dir }}/vault"
+    capability: "cap_ipc_lock=ep"
+    state: present
+
+- name: create symbolic link for vault
+  ansible.builtin.file:
+    src: "{{ hashi_binary_dir }}/vault"
+    dest: "/usr/local/bin/vault"
+    state: link
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    mode: 0755
+  when: hashi_binary_dir != "/usr/local/bin"

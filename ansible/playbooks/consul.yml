@@ -1,4 +1,0 @@
----
-- name: Install Consul Server
-  hosts: consul_servers
-  gather_facts: true

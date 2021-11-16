@@ -1,0 +1,77 @@
+---
+- name: create vault group
+  ansible.builtin.group:
+    name: "{{ vault_group }}"
+
+- name: create vault user
+  ansible.builtin.user:
+    name: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    system: true
+    shell: "/sbin/nologin"
+    comment: "vault nologin user"
+    create_home: false
+    state: present
+
+- name: install prerequisites
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    update_cache: true
+    autoremove: true
+    autoclean: true
+  loop:
+    - "{{ vault_install_dependencies }}"
+
+- name: create vault dirs
+  ansible.builtin.file:
+    path: "{{ item.dir }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: 0755
+    state: directory
+  loop: "{{ vault_dirs }}"
+
+- name: download binary archive
+  ansible.builtin.get_url:
+    url: "{{ vault_archive_url }}/vault_{{ vault_version }}_{% if ansible_facts['architecture'] == 'aarch64' %}linux_arm64{% else %}linux_amd64{% endif %}.zip"
+    dest: /tmp/vault-v{{ vault_version }}.zip
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    mode: 0755
+    checksum: "sha256:{{ vault_archive_url }}/vault_{{ vault_version }}_SHA256SUMS"
+  when: _install_vault
+
+- name: test for archive
+  ansible.builtin.stat:
+    path: /tmp/vault-v{{ vault_version }}.zip
+  register: vault_archive_dl
+  when: _install_vault
+
+- name: testing variable vault_archive_dl
+  ansible.builtin.debug:
+    var: vault_archive_dl
+  when: vault_install_debug
+
+- name: unpack archive
+  ansible.builtin.unarchive:
+    remote_src: true
+    src: /tmp/vault-v{{ vault_version }}.zip
+    dest: "{{ hashi_binary_dir }}"
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    mode: "0755"
+  when: _install_vault and vault_archive_dl.stat.exists
+
+- name: remove downloaded archive if it still exists
+  ansible.builtin.file:
+    path: /tmp/vault-v{{ vault_version }}.zip
+    state: absent
+
+- name: create systemd unit
+  ansible.builtin.template:
+    src: vault-systemd.j2
+    dest: /etc/systemd/system/vault.service
+    owner: root
+    group: root
+    mode: 0644
+  notify: systemd_reload

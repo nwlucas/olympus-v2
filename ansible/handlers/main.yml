@@ -1,17 +1,4 @@
+---
 - name: reload systemd
   ansible.builtin.systemd:
     daemon_reload: true
-  listen:
-    - "restart consul service"
-    - "restart nomad service"
-    - "restart vault service"
-    - "restart certbot service"
-
-- name: restart ddclient
-  ansible.builtin.systemd:
-    daemon_reload: true
-    name: ddclient.service
-    state: restarted
-    enabled: true
-  listen:
-    - "restart ddclient service"
