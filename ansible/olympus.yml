@@ -5,9 +5,11 @@
   become: true
   handlers:
     - import_tasks: ./handlers/main.yml
+  # yamllint disable rule:braces
   roles:
     - { name: "ddclient_install", when: install_ddclient }
     - { name: "certbot_install", when: install_certbot }
+  # yamllint enable rule:braces
   tasks:
     - name: set correct timezone
       community.general.timezone:

@@ -10,7 +10,7 @@
     system: true
     shell: "/sbin/nologin"
     comment: "vault nologin user"
-    create_home: false
+    home: "{{ vault_config_path | dirname }}"
     state: present
 
 - name: install prerequisites
@@ -29,7 +29,36 @@
     group: "{{ item.group }}"
     mode: 0755
     state: directory
-  loop: "{{ vault_dirs }}"
+  loop:
+    - "{{ vault_dirs }}"
+    - "{{ vault_config_path | dirname | join('/data') }}"
+
+- name: preparing for vault upgrade
+  block:
+    - name: get service status
+      ansible.builtin.service_facts:
+      register: services_state
+
+    - name: testing variable vault_version to be installed
+      ansible.builtin.debug:
+        var: services_state.ansible_facts.services
+
+    - name: stop vault service
+      ansible.builtin.systemd:
+        name: vault.service
+        state: stop
+      when:
+        - "'vault' in services_state.ansible_facts.services"
+        - services_state.ansible_facts.services["vault.service"].state == "running"
+  when:
+    - vault_systemd.stat.exists
+    - vault_binary.stat.exists
+
+- name: remove current binary if it exists
+  ansible.builtin.file:
+    path: "{{ hashi_binary_dir }}/vault"
+    state: absent
+  when: vault_binary.stat.exists
 
 - name: download binary archive
   ansible.builtin.get_url:
@@ -39,13 +68,11 @@
     group: "{{ vault_group }}"
     mode: 0755
     checksum: "sha256:{{ vault_archive_url }}/vault_{{ vault_version }}_SHA256SUMS"
-  when: _install_vault
 
 - name: test for archive
   ansible.builtin.stat:
     path: /tmp/vault-v{{ vault_version }}.zip
   register: vault_archive_dl
-  when: _install_vault
 
 - name: testing variable vault_archive_dl
   ansible.builtin.debug:
@@ -60,18 +87,27 @@
     owner: "{{ vault_user }}"
     group: "{{ vault_group }}"
     mode: "0755"
-  when: _install_vault and vault_archive_dl.stat.exists
 
 - name: remove downloaded archive if it still exists
   ansible.builtin.file:
     path: /tmp/vault-v{{ vault_version }}.zip
     state: absent
+  when: vault_archive_dl.stat.exists
 
-- name: create systemd unit
-  ansible.builtin.template:
-    src: vault-systemd.j2
-    dest: /etc/systemd/system/vault.service
-    owner: root
-    group: root
-    mode: 0644
-  notify: systemd_reload
+- name: set binary capabilities
+  community.general.capabilities:
+    path: "{{ hashi_binary_dir }}/vault"
+    capability: "cap_ipc_lock=ep"
+    state: present
+
+- name: create symbolic link for vault
+  ansible.builtin.file:
+    src: "{{ hashi_binary_dir }}/vault"
+    dest: "/usr/local/bin/vault"
+    state: link
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    mode: 0755
+  when:
+    - hashi_binary_dir != "/usr/local/bin"
+    - not vault_binary_link.stat.exists

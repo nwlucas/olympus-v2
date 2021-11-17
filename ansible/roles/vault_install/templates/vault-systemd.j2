@@ -3,17 +3,36 @@ Description=A tool for managing secrets
 Documentation=https://vaultproject.io/docs/
 After=network.target
 ConditionFileNotEmpty={{ vault_config_path }}
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
 User={{ vault_user }}
 Group={{ vault_group }}
 ExecStart=/usr/local/bin/vault server -config={{ vault_config_path }}
 ExecReload=/usr/local/bin/kill --signal HUP $MAINPID
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+AmbientCapabilities=CAP_IPC_LOCK
 CapabilityBoundingSet=CAP_SYSLOG CAP_IPC_LOCK
 Capabilities=CAP_IPC_LOCK+ep
 SecureBits=keep-caps
 NoNewPrivileges=yes
+KillMode=process
 KillSignal=SIGINT
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+StartLimitInterval=60
+StartLimitIntervalSec=60
+StartLimitBurst=3
+LimitNOFILE=65536
+LimitMEMLOCK=infinity
+LogRateLimitIntervalSec=0
+LogRateLimitBurst=0
 
 [Install]
 WantedBy=multi-user.target

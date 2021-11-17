@@ -7,3 +7,12 @@
   listen:
     - reload_systemd
     - systemd_reload
+
+- name: restart vault
+  ansible.builtin.systemd:
+    name: vault.service
+    state: restarted
+  listen:
+    - restart_vault
+    - vault_restart
+    - "restart vault services"

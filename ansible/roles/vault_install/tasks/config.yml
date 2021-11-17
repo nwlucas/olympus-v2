@@ -1,0 +1,17 @@
+- name: create systemd unit
+  ansible.builtin.template:
+    src: vault-systemd.j2
+    dest: /etc/systemd/system/vault.service
+    owner: root
+    group: root
+    mode: 0644
+  notify: systemd_reload
+
+- name: place vault configuration
+  ansible.builtin.template:
+    src: vault-config.j2
+    dest: "{{ vault_config_path }}"
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    mode: 0640
+  notify: restart vault services
