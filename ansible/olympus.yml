@@ -5,15 +5,11 @@
   become: true
   handlers:
     - import_tasks: ./handlers/main.yml
-  # yamllint disable rule:braces
-  roles:
-    - { name: "ddclient_install", when: install_ddclient }
-    - { name: "certbot_install", when: install_certbot }
-  # yamllint enable rule:braces
   tasks:
     - name: set correct timezone
       community.general.timezone:
         name: America/New_York
+
     - name: set correct hostname
       ansible.builtin.hostname:
         name: "{{ inventory_hostname }}"
@@ -26,62 +22,86 @@
         mode: 0644
       notify:
         - reload systemd
+
     - name: force all notified handlers to run at this point, not waiting for normal sync points
       meta: flush_handlers
+
     # - name: Enable and start network environment service
     #   ansible.builtin.systemd:
     #     name: setup-network-environment.service
     #     state: started
     #     enabled: true
-  tags:
-    - host-prep
-    - ddclient-install
-    - certbot-install
 
-# TODO: Work thorugh installing UnifiOS on ARM. Current blocker is it does NOT recognize separately installed MongoDB
-- name: install ubnt node
-  hosts: ubnt_servers
-  gather_facts: true
-  become: true
-  roles:
-    - ubnt_install
-  tags:
-    - ubnt-install
+    - name: install ddclient
+      ansible.builtin.import_role:
+        name: ddclient_install
+      when: install_ddclient
+      tags:
+        - ddclient-install
 
-- name: install vault cluster
+    - name: install certbot
+      ansible.builtin.import_role:
+        name: certbot_install
+      when: install_certbot
+      tags:
+        - certbot-install
+
+    - name: install ubnt
+      ansible.builtin.import_role:
+        name: ubnt_install
+      when: "'ubnt_servers' in group_names"
+      tags:
+        - ubnt-install
+
+    - name: install cloudflare tunnel
+      ansible.builtin.import_role:
+        name: cloudflare_tunnel
+      when: "'cloudflared_nodes' in group_names"
+      tags:
+        - cloudflare-install
+        - cf-install
+
+    - name: install vault cluster
+      ansible.builtin.import_role:
+        name: vault_install
+      when: "'vault_servers' in group_names"
+      tags:
+        - vault-install
+        - hashi-stack
+
+    - name: install consul cluster
+      ansible.builtin.import_role:
+        name: consul_install
+      when: "'consul_servers' in group_names"
+      tags:
+        - consul-install
+        - hashi-stack
+
+    - name: install nomad cluster
+      ansible.builtin.import_role:
+        name: nomad_install
+      when: "'nomad_servers' in group_names"
+      tags:
+        - nomad-install
+        - hashi-stack
+
+- name: initialize vault cluster
   hosts: vault_servers
   gather_facts: true
   become: true
   roles:
-    - vault_install
     - vault_init
+  tags:
+    - vault-init
+
+- name: unseal vault cluster
+  hosts: vault_servers
+  gather_facts: true
+  become: true
+  roles:
     - vault_unseal
   tags:
-    - vault
-    - vault-install
-    - vault-init
     - vault-unseal
-    - hashi-stack
-
-- name: install consul cluster
-  hosts: consul_servers
-  gather_facts: true
-  become: true
-  roles:
-    - consul_install
-  tags:
-    - consul-install
-    - hashi-stack
-
-- name: install nomad cluster
-  hosts: nomad_servers
-  gather_facts: true
-  become: true
-  roles:
-    - nomad_install
-  tags:
-    - nomad-install
-    - hashi-stack
 
 - name: install nomad & consul agents on application servers
   hosts: app_servers

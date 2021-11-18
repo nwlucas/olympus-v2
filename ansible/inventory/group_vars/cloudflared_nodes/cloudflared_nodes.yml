@@ -1,0 +1,4 @@
+cloudflared_config_path: "/opt/cloudflared"
+cloudflared_binary_dir: "/opt/bin"
+
+cloudflared_install_debug: true

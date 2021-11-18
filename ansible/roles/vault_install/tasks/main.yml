@@ -55,8 +55,8 @@
   when: vault_install_debug and _install_vault
 
 - name: install vault
-  ansible.builtin.include_tasks: ./install.yml
+  ansible.builtin.include_tasks: ./vault_install.yml
   when: _install_vault
 
 - name: configure vault
-  ansible.builtin.include_tasks: ./config.yml
+  ansible.builtin.include_tasks: ./vault_config.yml

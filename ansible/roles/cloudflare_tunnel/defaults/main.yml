@@ -1,0 +1,14 @@
+---
+# defaults file for cloudflare_tunnel
+cloudflared_install_debug: false
+cloudflared_install_override: false
+_install_cloudflared: false
+
+cloudflared_version: "2021.11.0"
+
+cloudflared_repo_url: "https://github.com/cloudflare/cloudflared/releases/download"
+cloudflared_config_path: "/etc/cloudflared"
+cloudflared_binary_dir: "/usr/local/bin"
+
+cloudflared_user: "cfd"
+cloudflared_group: "cfd"

@@ -10,6 +10,9 @@ rpi-[01:03].nwlnexus.net
 [ubnt_servers]
 rpi-06.nwlnexus.net
 
+[cloudflared_nodes]
+hades.nwlnexus.net
+
 [app_servers]
 rpi-[04:05].nwlnexus.net
 janus-[01:02].nwlnexus.net

@@ -1,0 +1,9 @@
+credentials-file: /etc/cloudflared/credentials.json
+tunnel: ${ tunnel_id }
+autoupdate-freq: ${ autoupdate_freq }
+transport-loglevel: ${ transport_log_level }
+loglevel: ${ log_level }
+logfile: /var/log/cloudflared.log
+
+ingress:
+  - service: http_status:404

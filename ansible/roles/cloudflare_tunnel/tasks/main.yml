@@ -1,0 +1,167 @@
+---
+# tasks file for cloudflare_tunnel
+- name: test for binary
+  ansible.builtin.stat:
+    path: "{{ cloudflared_binary_dir }}/cloudflared"
+  register: cloudflared_binary
+
+- name: test for symlink to binary
+  ansible.builtin.stat:
+    path: "/usr/local/bin/cloudflared"
+  register: cloudflared_binary_link
+  when: cloudflared_binary_dir != "/usr/local/bin"
+
+- name: test for systemd service unit
+  ansible.builtin.stat:
+    path: "/etc/systemd/system/cloudflared.service"
+  register: cloudflared_systemd
+
+- name: register binary version
+  ansible.builtin.command:
+    cmd: "{{ cloudflared_binary_dir }}/cloudflared -v"
+  register: cloudflared_binary_version
+  changed_when: false
+  when: cloudflared_binary.stat.exists
+
+- name: set the discovered binary version
+  ansible.builtin.set_fact:
+    _discovered_binary_version: "{{ cloudflared_binary_version.stdout.split(' ')[2] }}"
+  when: cloudflared_binary.stat.exists
+
+- name: determine if to install or upgrade cloudflared binary
+  ansible.builtin.set_fact:
+    _install_cloudflared: "{{ true | default(false) }}"
+  when: (not cloudflared_binary.stat.exists)
+    or (cloudflared_binary.stat.exists and _discovered_binary_version is version(cloudflared_version,operator='lt',version_type='semver'))
+    or cloudflared_install_override
+
+- name: testing variable cloudflared_binary_version
+  ansible.builtin.debug:
+    var: _install_cloudflared
+  when: cloudflared_install_debug
+
+- name: testing variable cloudflared_version to be installed
+  ansible.builtin.debug:
+    var: cloudflared_version
+  when: cloudflared_install_debug and _install_cloudflared
+
+- name: testing variable cloudflared_archive_url to get cloudflared binary from
+  ansible.builtin.debug:
+    var: cloudflared_archive_url
+  when: cloudflared_install_debug and _install_cloudflared
+
+- name: define supported *nix distributions
+  ansible.builtin.set_fact:
+    _nix_distros:
+      - "RedHat"
+      - "CentOS"
+      - "OracleLinux"
+      - "Fedora"
+      - "Debian"
+      - "FreeBSD"
+      - "SmartOS"
+      - "Ubuntu"
+      - "Archlinux"
+      - "Alpine"
+      - "Amazon"
+      - "Flatcar"
+
+- name: set the discovered os type to Linux
+  ansible.builtin.set_fact:
+    _discovered_os: "linux"
+  when:
+    - ansible_facts['distribution'] in _nix_distros
+    - ansible_facts['os_family'] != "Windows"
+    - ansible_facts['os_family'] != "Darwin"
+
+- name: set the discovered os type to Windows
+  ansible.builtin.set_fact:
+    _discovered_os: "windows"
+  when: ansible_facts['os_family'] == "Windows"
+
+- name: set the discovered os type to Darwin
+  ansible.builtin.set_fact:
+    _discovered_os: "darwin"
+  when: ansible_facts['os_family'] == "Darwin"
+
+- name: set the discovered arch to 386
+  ansible.builtin.set_fact:
+    _discovered_arch: "386"
+  when: ansible_facts['architecture'] == "i386" or ansible_facts['architecture'] == "i686"
+
+- name: set the discovered arch to amd64
+  ansible.builtin.set_fact:
+    _discovered_arch: "amd64"
+  when: ansible_facts['architecture'] == "x86_64"
+
+- name: set the discovered os arm
+  ansible.builtin.set_fact:
+    _discovered_arch: "arm"
+  when: ansible_facts['architecture'] == "arm" or ansible_facts['architecture'] == "armv7l"
+
+- name: set the discovered os arm64
+  ansible.builtin.set_fact:
+    _discovered_arch: "arm64"
+  when: ansible_facts['architecture'] == "aarch64"
+
+- name: testing variable _discovered_os
+  ansible.builtin.debug:
+    var: _discovered_os
+  when: cloudflared_install_debug
+
+- name: testing variable _discovered_arch
+  ansible.builtin.debug:
+    var: _discovered_arch
+  when: cloudflared_install_debug
+
+- name: create cloudflared group
+  ansible.builtin.group:
+    name: "{{ cloudflared_group }}"
+
+- name: create cloudflared user
+  ansible.builtin.user:
+    name: "{{ cloudflared_user }}"
+    group: "{{ cloudflared_group }}"
+    system: true
+    shell: "/sbin/nologin"
+    comment: "cloudflared nologin user"
+    home: "{{ cloudflared_config_path | dirname }}"
+    state: present
+
+- name: ensure the binary directory exists
+  ansible.builtin.file:
+    path: "{{ cloudflared_binary_dir }}"
+    owner: "root"
+    group: "root"
+    mode: 0755
+    state: directory
+  when: cloudflared_binary_dir != "/usr/local/bin"
+
+- name: download binary
+  ansible.builtin.get_url:
+    url: "{{ cloudflared_repo_url }}/{{ cloudflared_version }}/cloudflared-{{ _discovered_os }}-{{ _discovered_arch }}"
+    dest: "{{ cloudflared_binary_dir }}/cloudflared"
+    owner: "{{ cloudflared_user }}"
+    group: "{{ cloudflared_group }}"
+    mode: 0555
+  when: not cloudflared_binary.stat.exists
+
+- name: create symbolic link for cloudflared
+  ansible.builtin.file:
+    src: "{{ cloudflared_binary_dir }}/cloudflared"
+    dest: "/usr/local/bin/cloudflared"
+    state: link
+    owner: "{{ cloudflared_user }}"
+    group: "{{ cloudflared_group }}"
+    mode: 0555
+  when:
+    - cloudflared_binary_dir != "/usr/local/bin"
+    - not cloudflared_binary_link.stat.exists
+
+- name: ensure cloudflared directories exists
+  ansible.builtin.file:
+    path: "{{ cloudflared_config_path }}"
+    owner: "{{ cloudflared_user }}"
+    group: "{{ cloudflared_group }}"
+    mode: 0755
+    state: directory
