@@ -41,14 +41,14 @@ access_apps = [
   },
   {
     name    = "qnap-ssh"
-    service = "ssh://192.168.253.10:22"
+    service = "ssh://qnap.nwlnexus.net:22"
   },
   {
     name    = "qnap-ui"
-    service = "https://192.168.253.10:8443"
+    service = "https://qnap.nwlnexus.net:8443"
   },
   {
     name    = "charon-ui"
-    service = "https://192.168.253.10:8443"
+    service = "https://mgmt.nwlnexus.net:8443"
   }
 ]
