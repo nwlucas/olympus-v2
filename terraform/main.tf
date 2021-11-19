@@ -77,6 +77,6 @@ resource "cloudflare_record" "ssh_apps_cnames" {
   zone_id = data.cloudflare_zone.app_zone.id
   type    = "CNAME"
   name    = each.key
-  value   = cloudflare_argo_tunnel.olympus_tunnel.cname
+  value   = format("%s.cfargotunnel.com", cloudflare_argo_tunnel.olympus_tunnel.id)
   proxied = true
 }

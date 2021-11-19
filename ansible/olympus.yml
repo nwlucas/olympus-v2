@@ -1,19 +1,48 @@
 ---
+- name: gather info
+  hosts: localhost
+  tasks:
+    - name: gathering terraform outputs
+      terraform_backend_info:
+        bucket: "{{ aws_bucket }}"
+        object: "olympus-v2"
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_access_key: "{{ aws_secret_access_key }}"
+        aws_region: "{{ aws_region }}"
+      become: false
+      register: "olympus_v2"
+      tags:
+        - always
+        - terraform_backend_info
+
+    - name: show terraform outputs
+      debug:
+        var: olympus_v2
+      tags:
+        - terraform_backend_info
+
 - name: host preparation
   hosts: all
   gather_facts: true
   become: true
   handlers:
     - import_tasks: ./handlers/main.yml
+  vars:
+    _olympus_v2: "{{ hostvars['localhost']['olympus_v2']['vars'] }}"
   tasks:
     - name: set correct timezone
       community.general.timezone:
         name: America/New_York
+      tags:
+        - always
 
     - name: set correct hostname
       ansible.builtin.hostname:
         name: "{{ inventory_hostname }}"
         use: systemd
+      tags:
+        - always
+
     # TODO: Move this service template so that it points to the correct binary download based on arch.
     - name: place network environment file
       ansible.builtin.template:
@@ -31,6 +60,31 @@
     #     name: setup-network-environment.service
     #     state: started
     #     enabled: true
+
+    # - name: install packages only when the apt process is not locked
+    #   ansible.builtin.apt:
+    #     name: "{{ item }}"
+    #     state: present
+    #     update_cache: true
+    #     cache_valid_time: 3600
+    #     autoremove: true
+    #     autoclean: true
+    #   register: apt_action
+    #   retries: 100
+    #   until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+    #   loop:
+    #     - python3-pip
+    #     - net-tools
+    #   tags:
+    #     - always
+
+    # - name: ensure pip packages are installed
+    #   ansible.builtin.pip:
+    #     name: boto3
+    #     executable: pip3
+    #     umask: "0022"
+    #   tags:
+    #     - terraform_backend_info
 
     - name: install ddclient
       ansible.builtin.import_role:

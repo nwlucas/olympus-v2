@@ -1,2 +1,18 @@
 ---
 # handlers file for cloudflare_tunnel
+
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen:
+    - reload_systemd
+    - systemd_reload
+
+- name: restart cloudflared
+  ansible.builtin.systemd:
+    name: cloudflared.service
+    state: restarted
+  listen:
+    - restart_cloudflared
+    - cloudflared_restart
+    - "restart cloudflared services"
