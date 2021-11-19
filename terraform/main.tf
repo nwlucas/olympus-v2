@@ -8,12 +8,19 @@ variable "APP_ZONE" {
 
 variable "access_apps" {
   type = list(object({
-    name    = string
-    service = string
+    name             = string
+    service          = string
+    session_duration = optional(string)
+    type             = optional(string)
   }))
 }
 
 locals {
+  access_apps = defaults(var.access_apps, {
+    session_duration = "1h"
+    type             = "self_hosted"
+  })
+
   cf_apps = [for app in var.access_apps :
     {
       "name"    = app.name
@@ -46,19 +53,18 @@ resource "cloudflare_access_group" "olympus_group" {
   }
 }
 
-resource "cloudflare_access_application" "ssh_apps" {
-  for_each = { for app in var.access_apps : app.name => app }
+resource "cloudflare_access_application" "access_apps" {
+  for_each = { for app in local.access_apps : app.name => app }
 
   zone_id          = data.cloudflare_zone.app_zone.id
   name             = each.key
   domain           = format("%s.%s", each.key, var.APP_ZONE)
-  type             = "self_hosted"
-  session_duration = "1h"
-
+  type             = each.value.type
+  session_duration = each.value.session_duration
 }
 
-resource "cloudflare_access_policy" "ssh_admin_policies" {
-  for_each = cloudflare_access_application.ssh_apps
+resource "cloudflare_access_policy" "admin_policies" {
+  for_each = cloudflare_access_application.access_apps
 
   application_id = each.value.id
   zone_id        = each.value.zone_id
@@ -72,7 +78,7 @@ resource "cloudflare_access_policy" "ssh_admin_policies" {
 }
 
 resource "cloudflare_record" "ssh_apps_cnames" {
-  for_each = cloudflare_access_application.ssh_apps
+  for_each = cloudflare_access_application.access_apps
 
   zone_id = data.cloudflare_zone.app_zone.id
   type    = "CNAME"

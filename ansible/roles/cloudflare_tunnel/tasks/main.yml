@@ -181,6 +181,8 @@
     owner: "{{ cloudflared_user }}"
     group: "{{ cloudflared_group }}"
     mode: "0644"
+  notify:
+    - "restart cloudflared services"
 
 - name: place cloudflared systemd file
   ansible.builtin.template:

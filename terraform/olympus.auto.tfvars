@@ -5,7 +5,7 @@ access_apps = [
   },
   {
     name    = "charon-ssh"
-    service = "ssh://charon.nwlnexus.net:22"
+    service = "ssh://192.168.253.1:22"
   },
   {
     name    = "janus-01-ssh"
@@ -38,5 +38,17 @@ access_apps = [
   {
     name    = "rpi-06-ssh"
     service = "ssh://rpi-06.nwlnexus.net:22"
+  },
+  {
+    name    = "qnap-ssh"
+    service = "ssh://192.168.253.10:22"
+  },
+  {
+    name    = "qnap-ui"
+    service = "https://192.168.253.10:8443"
+  },
+  {
+    name    = "charon-ui"
+    service = "https://192.168.253.10:8443"
   }
 ]
