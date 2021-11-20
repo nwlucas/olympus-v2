@@ -1,2 +1,4 @@
 ---
 # defaults file for vault-unseal
+unseal_keys_dir_output: "{{ playbook_dir }}/.vault_init/unsealKey"
+root_key_dir_output: "{{ playbook_dir }}/.vault_init/rootKey"

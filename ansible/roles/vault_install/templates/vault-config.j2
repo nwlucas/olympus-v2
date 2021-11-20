@@ -13,6 +13,11 @@
 {% endif %}
 
 listener "tcp" {
+  address     = "127.0.0.1:{{ vault_listener_port }}"
+  tls_disable = true
+}
+
+listener "tcp" {
   address          = "{{ vault_listener_address }}:{{ vault_listener_port }}"
   cluster_address  = "{{ vault_listener_address }}:{{ vault_cluster_port }}"
 {% if _vault_certs.keys()|length > 0 %}
@@ -26,14 +31,16 @@ listener "tcp" {
 storage "raft" {
   path       = "{{ vault_config_path | dirname }}/data"
   node_id    = "{{ ansible_facts['hostname'] }}"
-  retry_join = {
-    leader_api_addr        = "{{ vault_proto }}://{{ groups['vault_servers'][0] }}:{{ vault_listener_port }}"
+{% for node in groups['vault_servers'] %}
+  retry_join {
+    leader_api_addr        = "{{ vault_proto }}://{{ node }}:{{ vault_listener_port }}"
 {% if _vault_certs.keys()|length > 0 %}
     leader_ca_cert_file     = "{{ vault_config_path | dirname }}/certs/vault_ca.crt"
     leader_client_cert_file = "{{ vault_config_path | dirname }}/certs/{{ _vault_certs['pub_cert']['filename'] }}"
     leader_client_key_file  = "{{ vault_config_path | dirname }}/certs/{{ _vault_certs['prv_key']['filename'] }}"
 {% endif %}
   }
+{% endfor %}
 }
 disable_mlock = true
 {% endif %}

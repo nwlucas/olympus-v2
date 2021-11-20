@@ -1,2 +1,106 @@
 ---
-# tasks file for vault-unseal
+# tasks file for vault_unseal
+- name: determine if cluster was initialized and files are still local
+  ansible.builtin.find:
+    path: "{{ unseal_keys_dir_output }}"
+    patterns: "^unseal_key_[0-5]$"
+    file_type: "file"
+    use_regex: "yes"
+  register: unseal_keys_found
+  become: false
+  delegate_to: localhost
+
+- name: determine if cluster was initialized and files are still local
+  ansible.builtin.find:
+    path: "{{ root_key_dir_output }}"
+    patterns: "^rootkey$"
+    file_type: "file"
+    use_regex: "yes"
+  register: root_key_found
+  become: false
+  delegate_to: localhost
+
+- name: testing variable unseal_keys_found
+  ansible.builtin.debug:
+    var: unseal_keys_found
+  when: vault_unseal_debug
+  delegate_to: localhost
+
+- name: Create unseal directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: "0744"
+    state: directory
+  loop:
+    - "{{ unseal_keys_dir_output }}"
+    - "{{ root_key_dir_output }}"
+  become: false
+  delegate_to: localhost
+
+- name: list unseal keys in Amazon S3
+  amazon.aws.aws_s3:
+    bucket: "{{ aws_bucket }}"
+    mode: "list"
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_access_key }}"
+    aws_region: "{{ aws_region }}"
+  register: s3_keys
+  when: unseal_keys_found.matched == 0 or root_key_found.matched == 0
+  become: false
+  delegate_to: localhost
+
+- name: testing variable s3_keys
+  ansible.builtin.debug:
+    var: s3_keys
+  when: vault_unseal_debug
+  delegate_to: localhost
+
+- name: download unseal keys to Amazon S3
+  amazon.aws.aws_s3:
+    bucket: "{{ aws_bucket }}"
+    object: "{{ item }}"
+    dest: "{{ unseal_keys_dir_output }}/{{ item | basename }}"
+    mode: "get"
+    overwrite: different
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_access_key }}"
+    aws_region: "{{ aws_region }}"
+  loop: "{{ s3_keys.s3_keys | select('match', '^vault\/unseal_keys\/unseal_key_[0-5]$') | list }}"
+  when: unseal_keys_found.matched == 0
+  become: false
+  delegate_to: localhost
+
+- name: download root key to Amazon S3
+  amazon.aws.aws_s3:
+    bucket: "{{ aws_bucket }}"
+    object: "{{ item }}"
+    dest: "{{ root_key_dir_output }}/{{ item | basename }}"
+    mode: "get"
+    overwrite: different
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_access_key }}"
+    aws_region: "{{ aws_region }}"
+  loop: "{{ s3_keys.s3_keys | select('match', '^vault\/root_key\/rootkey$') | list }}"
+  when: root_key_found.matched == 0
+  become: false
+  delegate_to: localhost
+
+- name: Reading unseal key contents
+  ansible.builtin.set_fact:
+    unseal_keys: "{{ unseal_keys | default([]) + [lookup('file', item)] }}"
+  with_fileglob: "{{ unseal_keys_dir_output }}/*"
+  delegate_to: localhost
+
+- name: testing variable unseal_keys
+  ansible.builtin.debug:
+    var: unseal_keys
+  when: vault_unseal_debug
+
+- name: Unseal vault with unseal keys
+  ansible.builtin.command:
+    cmd: vault operator unseal {{ item }}
+  environment:
+    VAULT_ADDR: "http://127.0.0.1:{{ vault_listener_port }}"
+    # VAULT_SKIP_VERIFY: "true"
+  changed_when: false
+  with_items: "{{ unseal_keys }}"

@@ -1,18 +1,15 @@
 ---
 - name: execute controller tasks
+  gather_facts: true
   hosts: localhost
   vars:
     vault_init_debug: false
-    vault_unseal_debug: false
   roles:
     - role: vault_init
       tags:
         - vault-init
         - never
-    - role: vault_unseal
-      tags:
-        - vault-unseal
-        - never
+
   pre_tasks:
     - name: gathering terraform outputs
       terraform_backend_info:
@@ -68,6 +65,7 @@
     - import_tasks: ./handlers/main.yml
   vars:
     _olympus_v2: "{{ hostvars['localhost']['olympus_v2']['vars'] }}"
+    vault_unseal_debug: true
   pre_tasks:
     - name: set correct timezone
       community.general.timezone:
@@ -144,6 +142,12 @@
       tags:
         - nomad-install
         - hashi-stack
+
+    - role: vault_unseal
+      when: "'vault_servers' in group_names"
+      tags:
+        - vault-unseal
+        - never
   tags:
     - host-prep
 
