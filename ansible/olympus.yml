@@ -33,6 +33,33 @@
       tags:
         - terraform_backend_info
 
+    # - name: install packages only when the apt process is not locked
+    #   ansible.builtin.apt:
+    #     name: "{{ item }}"
+    #     state: present
+    #     update_cache: true
+    #     cache_valid_time: 3600
+    #     autoremove: true
+    #     autoclean: true
+    #   register: apt_action
+    #   retries: 100
+    #   until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+    #   loop:
+    #     - python3-pip
+    #     - net-tools
+    #   tags:
+    #     - always
+
+    # - name: ensure pip packages are installed
+    #   ansible.builtin.pip:
+    #     name: boto3
+    #     executable: pip3
+    #     umask: "0022"
+    #   tags:
+    #     - terraform_backend_info
+
+
+
 - name: host preparation
   hosts: all
   gather_facts: true
@@ -41,15 +68,6 @@
     - import_tasks: ./handlers/main.yml
   vars:
     _olympus_v2: "{{ hostvars['localhost']['olympus_v2']['vars'] }}"
-  roles:
-    - role: ddclient_install
-      when: install_ddclient
-      apply:
-        tags: ddclient-install
-    - role: certbot_install
-      when: install_certbot
-      apply:
-        tags: certbot-install
   pre_tasks:
     - name: set correct timezone
       community.general.timezone:
@@ -81,50 +99,26 @@
     #     name: setup-network-environment.service
     #     state: started
     #     enabled: true
+  roles:
+    - role: ddclient_install
+      when: install_ddclient
+      tags: ddclient-install
 
-    # - name: install packages only when the apt process is not locked
-    #   ansible.builtin.apt:
-    #     name: "{{ item }}"
-    #     state: present
-    #     update_cache: true
-    #     cache_valid_time: 3600
-    #     autoremove: true
-    #     autoclean: true
-    #   register: apt_action
-    #   retries: 100
-    #   until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
-    #   loop:
-    #     - python3-pip
-    #     - net-tools
-    #   tags:
-    #     - always
+    - role: certbot_install
+      when: install_certbot
+      tags: certbot-install
 
-    # - name: ensure pip packages are installed
-    #   ansible.builtin.pip:
-    #     name: boto3
-    #     executable: pip3
-    #     umask: "0022"
-    #   tags:
-    #     - terraform_backend_info
-
-    - name: install ubnt
-      ansible.builtin.import_role:
-        name: ubnt_install
+    - role: ubnt_install
       when: "'ubnt_servers' in group_names"
-      tags:
-        - ubnt-install
+      tags: ubnt-install
 
-    - name: install cloudflare tunnel
-      ansible.builtin.import_role:
-        name: cloudflare_tunnel
+    - role: cloudflare_tunnel
       when: "'cloudflared_nodes' in group_names"
       tags:
         - cloudflare-install
         - cf-install
 
-    - name: install vault cluster
-      ansible.builtin.import_role:
-        name: vault_install
+    - role: vault_install
       when: "'vault_servers' in group_names"
       vars:
         vault_certs: "{{ _olympus_v2['vault_hosts'] }}"
@@ -133,21 +127,26 @@
         - vault-install
         - hashi-stack
 
-    - name: install consul cluster
-      ansible.builtin.import_role:
-        name: consul_install
+    - role: consul_install
       when: "'consul_servers' in group_names"
+      vars:
+        consul_certs: "{{ _olympus_v2['consul_hosts'] }}"
+        consul_ca: "{{ _olympus_v2['hashi_cas']['consul_ca'] }}"
       tags:
         - consul-install
         - hashi-stack
 
-    - name: install nomad cluster
-      ansible.builtin.import_role:
-        name: nomad_install
+    - role: nomad_install
       when: "'nomad_servers' in group_names"
+      vars:
+        nomad_certs: "{{ _olympus_v2['nomad_hosts'] }}"
+        nomad_ca: "{{ _olympus_v2['hashi_cas']['nomad_ca'] }}"
       tags:
         - nomad-install
         - hashi-stack
+  tags:
+    - host-prep
+
 
 - name: install nomad & consul agents on application servers
   hosts: app_servers
@@ -155,3 +154,5 @@
   become: true
   handlers:
     - import_tasks: ./handlers/main.yml
+  tags:
+    - app-servers
