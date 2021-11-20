@@ -38,6 +38,8 @@ storage "raft" {
 disable_mlock = true
 {% endif %}
 
-ui            = "{{ vault_ui }}"
+{% if vault_ui %}
+ui            = true
+{% endif %}
 api_addr      = "{{ vault_proto }}://{{ vault_listener_address }}:{{ vault_listener_port }}"
 cluster_addr  = "{{ vault_proto }}://{{ vault_listener_address }}:{{ vault_cluster_port }}"

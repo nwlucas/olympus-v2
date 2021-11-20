@@ -1,7 +1,19 @@
 ---
-- name: gather info
+- name: execute controller tasks
   hosts: localhost
-  tasks:
+  vars:
+    vault_init_debug: false
+    vault_unseal_debug: false
+  roles:
+    - role: vault_init
+      tags:
+        - vault-init
+        - never
+    - role: vault_unseal
+      tags:
+        - vault-unseal
+        - never
+  pre_tasks:
     - name: gathering terraform outputs
       terraform_backend_info:
         bucket: "{{ aws_bucket }}"
@@ -29,7 +41,16 @@
     - import_tasks: ./handlers/main.yml
   vars:
     _olympus_v2: "{{ hostvars['localhost']['olympus_v2']['vars'] }}"
-  tasks:
+  roles:
+    - role: ddclient_install
+      when: install_ddclient
+      apply:
+        tags: ddclient-install
+    - role: certbot_install
+      when: install_certbot
+      apply:
+        tags: certbot-install
+  pre_tasks:
     - name: set correct timezone
       community.general.timezone:
         name: America/New_York
@@ -86,20 +107,6 @@
     #   tags:
     #     - terraform_backend_info
 
-    - name: install ddclient
-      ansible.builtin.import_role:
-        name: ddclient_install
-      when: install_ddclient
-      tags:
-        - ddclient-install
-
-    - name: install certbot
-      ansible.builtin.import_role:
-        name: certbot_install
-      when: install_certbot
-      tags:
-        - certbot-install
-
     - name: install ubnt
       ansible.builtin.import_role:
         name: ubnt_install
@@ -141,24 +148,6 @@
       tags:
         - nomad-install
         - hashi-stack
-
-- name: initialize vault cluster
-  hosts: vault_servers
-  gather_facts: true
-  become: true
-  roles:
-    - vault_init
-  tags:
-    - vault-init
-
-- name: unseal vault cluster
-  hosts: vault_servers
-  gather_facts: true
-  become: true
-  roles:
-    - vault_unseal
-  tags:
-    - vault-unseal
 
 - name: install nomad & consul agents on application servers
   hosts: app_servers

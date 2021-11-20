@@ -1,2 +1,110 @@
 ---
-# tasks file for vault-init
+# tasks file for vault_init
+
+- name: determine if cluster was initialized and files are still local
+  ansible.builtin.find:
+    path: "{{ unseal_keys_dir_output }}"
+    patterns: "^unseal_key_[0-5]$"
+    file_type: "file"
+    use_regex: "yes"
+  register: unseal_keys_found
+
+- name: determine if cluster was initialized and files are still local
+  ansible.builtin.find:
+    path: "{{ root_token_dir_output }}"
+    patterns: "^rootkey$"
+    file_type: "file"
+    use_regex: "yes"
+  register: root_key_found
+
+- name: testing variable unseal_keys_found
+  ansible.builtin.debug:
+    var: unseal_keys_found
+  when: vault_init_debug
+
+- name: testing variable root_key_found
+  ansible.builtin.debug:
+    var: root_key_found
+  when: vault_init_debug
+
+- name: Create unseal directories
+  ansible.builtin.file:
+    path: "{{ unseal_keys_dir_output }}"
+    mode: "0744"
+    state: directory
+
+- name: Create root key directories
+  ansible.builtin.file:
+    path: "{{ root_token_dir_output }}"
+    mode: "0744"
+    state: directory
+
+- name: Initialise Vault operator
+  ansible.builtin.command:
+    cmd: vault operator init -key-shares=5 -key-threshold=3 -format json
+  environment:
+    VAULT_ADDR: "https://{{ groups['vault_servers'][0] }}:{{ hostvars[groups['vault_servers'][0]]['vault_listener_port'] }}"
+    VAULT_SKIP_VERIFY: "true"
+  changed_when: false
+  register: vault_init_results
+  when:
+    - unseal_keys_found.matched == 0
+    - root_key_found.matched == 0
+
+- name: Parse output of vault init
+  ansible.builtin.set_fact:
+    vault_init_parsed: "{{ vault_init_results.stdout | from_json }}"
+  when: vault_init_results is not skipped
+
+- name: Write unseal keys to files
+  ansible.builtin.copy:
+    dest: "{{ unseal_keys_dir_output }}/unseal_key_{{ item.0 }}"
+    content: "{{ item.1 }}"
+    mode: "0744"
+  with_indexed_items: "{{ vault_init_parsed.unseal_keys_hex }}"
+  when:
+    - vault_init_parsed is defined
+    - vault_init_parsed is not skipped
+
+- name: Write root token to file
+  ansible.builtin.copy:
+    content: "{{ vault_init_parsed.root_token }}"
+    dest: "{{ root_token_dir_output }}/rootkey"
+    mode: "0744"
+  when:
+    - vault_init_parsed is defined
+    - vault_init_parsed is not skipped
+
+- name: upload vault unseal keys to Amazon S3
+  amazon.aws.aws_s3:
+    bucket: "{{ aws_bucket }}"
+    content: "{{ lookup('file', item) }}"
+    object: "/vault/unseal_keys/{{ item | basename }}"
+    mode: "put"
+    overwrite: different
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_access_key }}"
+    aws_region: "{{ aws_region }}"
+  loop: "{{ unseal_keys_found.files | map(attribute='path') | list }}"
+  when: unseal_keys_found.matched != 0
+
+- name: upload vault root key to Amazon S3
+  amazon.aws.aws_s3:
+    bucket: "{{ aws_bucket }}"
+    content: "{{ lookup('file', item) }}"
+    object: "/vault/root_key/{{ item | basename }}"
+    mode: "put"
+    overwrite: different
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_access_key }}"
+    aws_region: "{{ aws_region }}"
+  loop: "{{ root_key_found.files | map(attribute='path') | list }}"
+  when: root_key_found.matched != 0
+
+- name: clean up sensitive files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ unseal_keys_dir_output }}"
+    - "{{ root_token_dir_output }}"

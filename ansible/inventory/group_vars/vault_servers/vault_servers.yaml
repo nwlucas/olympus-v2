@@ -6,3 +6,4 @@ vault_version: 1.8.5
 # to show the possible customization and testing. Defining an invalid interface will cause
 # the play to fail.
 vault_listener_interface: "eth0"
+vault_listener_port: 8200
