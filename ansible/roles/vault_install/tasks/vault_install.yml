@@ -31,7 +31,6 @@
     state: directory
   loop:
     - "{{ vault_dirs }}"
-    - "{{ vault_config_path | dirname | join('/data') }}"
 
 - name: preparing for vault upgrade
   block:

@@ -14,7 +14,15 @@ vault_install_dependencies: ["unzip"]
 
 vault_config_path: "/opt/vault/vault.hcl"
 vault_archive_url: "https://releases.hashicorp.com/vault/{{ vault_version }}"
-# yamllint disable rule:braces
 vault_dirs:
-  - { dir: "{{ hashi_binary_dir }}", owner: "root", group: "root" }
-# yamllint enable rule:braces
+  - dir: "{{ hashi_binary_dir }}"
+    owner: "root"
+    group: "root"
+  - dir: "{{ vault_config_path | dirname | join('/data') }}"
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+
+## Vault configuration variables
+
+vault_listener_port: 8200
+vault_listener_interface: "default"

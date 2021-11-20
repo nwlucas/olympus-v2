@@ -53,3 +53,11 @@
     msg: "Invalid vault version"
   when:
     - vault_version is not version('0.1.0', operator='ge', version_type='semantic')
+
+- name: check for invalid listener interface
+  ansible.builtin.fail:
+    msg: "Invalid listener interface. must be one of {{ ansible_facts['interfaces'] }}"
+  when:
+    - vault_listener_interface is defined
+    - vault_listener_interface != "default" or vault_listener_interface != "all"
+    - vault_listener_interface not in ansible_facts['interfaces']

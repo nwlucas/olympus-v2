@@ -1,3 +1,22 @@
+{% if vault_listener_interface == "default" %}
+  {% set vault_listener_address =  ansible_facts['default_ipv4']['address'] %}
+{% elif vault_listener_interface == "all" %}
+  {% set vault_listener_address =  "0.0.0.0" -%}
+{% else %}
+  {% set vault_listener_address =  ansible_facts[vault_listener_interface]['ipv4']['address'] -%}
+{% endif %}
+
+ui = true
 listener "tcp" {
   address = "{{ vault_listener_address }}:{{ vault_listener_port }}"
 }
+
+storage "raft" {
+  path = "{{ vault_config_path | dirname | join('/data') }}"
+  node_id = "{{ ansible_facts['hostname'] }}"
+  retry_join = []
+}
+
+disable_mlock = true
+
+cluster_addr = "https://{{ vault_listener_address }}:8201"

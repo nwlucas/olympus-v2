@@ -5,3 +5,11 @@ provider "aws" {
 provider "cloudflare" {
 
 }
+
+provider "dns" {
+
+}
+
+provider "tls" {
+
+}

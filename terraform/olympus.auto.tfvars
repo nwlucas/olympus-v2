@@ -52,3 +52,26 @@ access_apps = [
     service = "https://mgmt.nwlnexus.net:8443"
   }
 ]
+
+hashi_hosts = {
+  "rpi-01" = {
+    consul_enabled = true
+    domain         = "nwlnexus.net"
+    nomad_enabled  = true
+    vault_enabled  = true
+  },
+  "rpi-02" = {
+    consul_enabled = true
+    domain         = "nwlnexus.net"
+    nomad_enabled  = true
+    vault_enabled  = true
+  },
+  "rpi-03" = {
+    consul_enabled = true
+    domain         = "nwlnexus.net"
+    nomad_enabled  = true
+    vault_enabled  = true
+  }
+}
+
+organization_name = "NWLNEXS LLC"
