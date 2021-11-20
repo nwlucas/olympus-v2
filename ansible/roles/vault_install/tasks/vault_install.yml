@@ -29,8 +29,7 @@
     group: "{{ item.group }}"
     mode: 0755
     state: directory
-  loop:
-    - "{{ vault_dirs }}"
+  loop: "{{ vault_dirs }}"
 
 - name: preparing for vault upgrade
   block:

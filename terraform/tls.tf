@@ -28,7 +28,8 @@ data "dns_a_record_set" "hashi_hosts" {
 module "vault_ca" {
   source = "./modules/ca"
 
-  private_key_algorithm = "ECDSA"
+  private_key_algorithm   = "ECDSA"
+  private_key_ecdsa_curve = "P384"
 
   ca_common_name     = "vault-ca"
   organization_name  = var.organization_name
@@ -38,7 +39,8 @@ module "vault_ca" {
 module "consul_ca" {
   source = "./modules/ca"
 
-  private_key_algorithm = "ECDSA"
+  private_key_algorithm   = "ECDSA"
+  private_key_ecdsa_curve = "P384"
 
   ca_common_name     = "consul-ca"
   organization_name  = var.organization_name
@@ -48,7 +50,8 @@ module "consul_ca" {
 module "nomad_ca" {
   source = "./modules/ca"
 
-  private_key_algorithm = "ECDSA"
+  private_key_algorithm   = "ECDSA"
+  private_key_ecdsa_curve = "P384"
 
   ca_common_name     = "nomad-ca"
   organization_name  = var.organization_name
@@ -60,7 +63,8 @@ module "vault_cert" {
 
   for_each = { for k, v in var.hashi_hosts : k => format("%s.%s", k, v.domain) if v.vault_enabled }
 
-  private_key_algorithm = "ECDSA"
+  private_key_algorithm   = "ECDSA"
+  private_key_ecdsa_curve = "P384"
 
   common_name        = each.value
   organization_name  = var.organization_name
@@ -86,7 +90,8 @@ module "consul_cert" {
 
   for_each = { for k, v in var.hashi_hosts : k => format("%s.%s", k, v.domain) if v.consul_enabled }
 
-  private_key_algorithm = "ECDSA"
+  private_key_algorithm   = "ECDSA"
+  private_key_ecdsa_curve = "P384"
 
   common_name        = each.value
   organization_name  = var.organization_name
@@ -112,7 +117,8 @@ module "nomad_cert" {
 
   for_each = { for k, v in var.hashi_hosts : k => format("%s.%s", k, v.domain) if v.nomad_enabled }
 
-  private_key_algorithm = "ECDSA"
+  private_key_algorithm   = "ECDSA"
+  private_key_ecdsa_curve = "P384"
 
   common_name        = each.value
   organization_name  = var.organization_name

@@ -1,2 +1,5 @@
 ---
-# vars file for vault-install
+# vars file for vault_install
+
+_vault_certs: "{{ _def_vault_certs | combine(vault_certs[inventory_hostname]) }}"
+_vault_ca: "{{ _def_vault_ca | combine(vault_ca) }}"

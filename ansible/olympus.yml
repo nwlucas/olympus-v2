@@ -119,6 +119,9 @@
       ansible.builtin.import_role:
         name: vault_install
       when: "'vault_servers' in group_names"
+      vars:
+        vault_certs: "{{ _olympus_v2['vault_hosts'] }}"
+        vault_ca: "{{ _olympus_v2['hashi_cas']['vault_ca'] }}"
       tags:
         - vault-install
         - hashi-stack

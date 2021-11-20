@@ -1,4 +1,4 @@
-{% if vault_listener_interface == "default" %}
+{%- if vault_listener_interface == "default" %}
   {% set vault_listener_address =  ansible_facts['default_ipv4']['address'] %}
 {% elif vault_listener_interface == "all" %}
   {% set vault_listener_address =  "0.0.0.0" -%}
@@ -6,17 +6,38 @@
   {% set vault_listener_address =  ansible_facts[vault_listener_interface]['ipv4']['address'] -%}
 {% endif %}
 
-ui = true
+{%- if _vault_certs.keys()|length == 0 %}
+  {% set vault_proto = "http" %}
+{% else %}
+  {% set vault_proto = "https" %}
+{% endif %}
+
 listener "tcp" {
-  address = "{{ vault_listener_address }}:{{ vault_listener_port }}"
+  address          = "{{ vault_listener_address }}:{{ vault_listener_port }}"
+  cluster_address  = "{{ vault_listener_address }}:{{ vault_cluster_port }}"
+{% if _vault_certs.keys()|length > 0 %}
+  tls_cert_file     = "{{ vault_config_path | dirname }}/certs/{{ _vault_certs['pub_cert']['filename'] }}"
+  tls_key_file      = "{{ vault_config_path | dirname }}/certs/{{ _vault_certs['prv_key']['filename'] }}"
+  tls_min_version  = "tls12"
+{% endif %}
 }
 
+{% if vault_storage == "raft" %}
 storage "raft" {
-  path = "{{ vault_config_path | dirname | join('/data') }}"
-  node_id = "{{ ansible_facts['hostname'] }}"
-  retry_join = []
+  path       = "{{ vault_config_path | dirname }}/data"
+  node_id    = "{{ ansible_facts['hostname'] }}"
+  retry_join = {
+    leader_api_addr        = "{{ vault_proto }}://{{ groups['vault_servers'][0] }}:{{ vault_listener_port }}"
+{% if _vault_certs.keys()|length > 0 %}
+    leader_ca_cert_file     = "{{ vault_config_path | dirname }}/certs/vault_ca.crt"
+    leader_client_cert_file = "{{ vault_config_path | dirname }}/certs/{{ _vault_certs['pub_cert']['filename'] }}"
+    leader_client_key_file  = "{{ vault_config_path | dirname }}/certs/{{ _vault_certs['prv_key']['filename'] }}"
+{% endif %}
+  }
 }
-
 disable_mlock = true
+{% endif %}
 
-cluster_addr = "https://{{ vault_listener_address }}:8201"
+ui            = "{{ vault_ui }}"
+api_addr      = "{{ vault_proto }}://{{ vault_listener_address }}:{{ vault_listener_port }}"
+cluster_addr  = "{{ vault_proto }}://{{ vault_listener_address }}:{{ vault_cluster_port }}"

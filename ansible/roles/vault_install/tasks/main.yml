@@ -1,5 +1,5 @@
 ---
-# tasks file for vault-install
+# tasks file for vault_install
 
 - name: Include check/asserts
   ansible.builtin.import_tasks: ./vault_asserts.yml
@@ -57,6 +57,11 @@
 - name: install vault
   ansible.builtin.include_tasks: ./vault_install.yml
   when: _install_vault
+
+- name: install vault certs
+  ansible.builtin.include_tasks: ./vault_certs.yml
+  when: (_vault_certs is defined and _vault_certs.keys()|length > 0)
+    or (_vault_ca is defined and _vault_ca.keys()|length > 0)
 
 - name: configure vault
   ansible.builtin.include_tasks: ./vault_config.yml

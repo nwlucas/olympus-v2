@@ -1,0 +1,35 @@
+- name: testing variable _vault_certs
+  ansible.builtin.debug:
+    var: _vault_certs
+  when: vault_install_debug
+
+- name: testing variable _vault_ca
+  ansible.builtin.debug:
+    var: _vault_certs
+  when: vault_install_debug
+
+- name: write out vault node public cert and key
+  ansible.builtin.copy:
+    content: "{{ item.content }}"
+    dest: "{{ vault_config_path | dirname }}/certs/{{ item.file }}"
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    mode: 0400
+  loop:
+    - content: "{{ _vault_certs['pub_cert']['cert'] }}"
+      file: "{{ _vault_certs['pub_cert']['filename'] }}"
+    - content: "{{ _vault_certs['prv_key']['cert'] }}"
+      file: "{{ _vault_certs['prv_key']['filename'] }}"
+
+- name: write out vault ca
+  ansible.builtin.copy:
+    content: "{{ item.content }}"
+    dest: "{{ vault_config_path | dirname }}/certs/vault_ca.{{ item.extension }}"
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    mode: 0400
+  loop:
+    - content: "{{ _vault_ca['pub'] }}"
+      extension: "crt"
+    - content: "{{ _vault_ca['prv'] }}"
+      extension: "key"

@@ -1,5 +1,5 @@
 ---
-# defaults file for vault-install
+# defaults file for vault_install
 _install_vault: false
 
 vault_install_debug: false
@@ -18,11 +18,24 @@ vault_dirs:
   - dir: "{{ hashi_binary_dir }}"
     owner: "root"
     group: "root"
-  - dir: "{{ vault_config_path | dirname | join('/data') }}"
+  - dir: "{{ vault_config_path | dirname }}"
     owner: "{{ vault_user }}"
     group: "{{ vault_group }}"
+  - dir: "{{ vault_config_path | dirname }}/data"
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+  - dir: "{{ vault_config_path | dirname }}/certs"
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+
+_def_vault_certs: {}
+_def_vault_ca: {}
 
 ## Vault configuration variables
 
 vault_listener_port: 8200
+vault_cluster_port: 8201
 vault_listener_interface: "default"
+
+vault_storage: "raft"
+vault_ui: true
