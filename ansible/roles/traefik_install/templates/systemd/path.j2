@@ -1,0 +1,10 @@
+[Unit]
+Description={{ item['Description'] }}
+[Path]
+PathChanged={{ item['Path'] }}
+{% if item['Service'] is defined %}
+Unit={{ item['Service'] }}
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,166 @@
+global:
+  checkNewVersion: {{ item['global']['checkNewVersion']  | default('false') }}
+  sendAnonymousUsage: {{ item['global']['sendAnonymousUsage'] | default('false') }}
+
+pilot:
+{% if item['pilot']['token'] is defined %}
+  token: {{ item['pilot']['token'] }}
+{% endif %}
+  dashboard: {{ item['pilot']['dashboard'] | default('false') }}
+
+{% if item['ping'] is defined and (item['ping'].keys() | length == 0) %}
+ping: {}
+{% endif %}
+
+api:
+  insecure: {{ item['api']['insecure']  | default('false') }}
+  dashboard: {{ item['api']['dashboard']  | default('false') }}
+  debug: {{ item['api']['debug']  | default('false') }}
+
+log:
+  level: {{ item['log']['level'] | default('DEBUG') }}
+  format: {{ item['log']['format'] | default('common') }}
+  filePath: {{ item['log']['filePath'] | default("{{ traefik_config_file | dirname }}/logs/traefik.log") }}
+
+{% if item['accessLog'] is defined %}
+accessLog:
+  format: {{ item['accessLog']['format'] | default('common') }}
+  filePath: {{ item['accessLog']['filePath'] | default("{{ traefik_config_file | dirname }}/logs/access.log") }}
+  bufferingSize: {{ item['accessLog']['bufferingSize'] | default('100') }}
+{% if item['accessLog']['fields'] is defined %}
+  fields:
+    defaultMode: {{ item['accessLog']['fields']['defaultMode'] | default('keep') }}
+{% if item['accessLog']['fields']['names'] is defined %}
+    names:
+{% for name in item['accessLog']['fields']['names'] %}
+      {{ name }}
+{% endfor %}
+{% endif %}
+    headers:
+      defaultMode: {{ item['accessLog']['fields']['headers']['defaultMode'] | default('drop') }}
+{% if item['accessLog']['fields']['headers']['names'] is defined %}
+      names:
+{% for name in item['accessLog']['fields']['headers']['names'] %}
+        {{ name }}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endif %}
+
+{% if enable_metrics %}
+metrics:
+  prometheus:
+    addEntryPointsLabels: {{ item['metrics']['addEntryPointsLabels'] | default("true") }}
+    addServicesLabels: {{ item['metrics']['addServicesLabels'] | default("true") }}
+    entryPoint: {{ item['metrics']['entryPoint'] | default("metrics") }}
+    manualRouting: {{ item['metrics']['manualRouting'] | default("false") }}
+{% endif %}
+
+{% if item['providers'] is defined and (item['providers'].keys() | length > 0) -%}
+providers:
+{% for provider, provider_settings in item['providers'].items() %}
+  {{ provider }}:
+{% if provider == "file" %}
+{% if provider_settings['directory'] is defined %}
+    directory: {{ provider_settings['directory'] | default("{{ traefik_config_file | dirname }}/configs/") }}
+{% elif provider_settings['filename'] is defined %}
+    filename: {{ provider_settings['filename'] | default("{{ traefik_config_file | dirname }}/configs/") }}
+{% endif %}
+    watch: {{ provider_settings['watch'] | default('true') }}
+{% endif %}
+{% if provider == 'docker' %}
+    constraints: {{ provider_settings['constraints'] }}
+    watch: {{ provider_settings['watch'] | default('true') }}
+    endpoint: {{ provider_settings['endpoint'] }}
+    defaultRule: {{ provider_settings['defaultRule'] }}
+    tls:
+      ca: {{ provider_settings['tls']['ca'] }}
+      caOptional: {{ provider_settings['tls']['caOptional'] | default('true') }}
+      cert: {{ provider_settings['tls']['cert'] }}
+      key: {{ provider_settings['tls']['key'] }}
+      insecureSkipVerify: {{ provider_settings['tls']['insecureSkipVerify'] | default('true') }}
+    exposedByDefault: {{ provider_settings['exposedByDefault'] | default('true') }}
+    useBindPortIP: {{ provider_settings['useBindPortIP'] | default('true') }}
+    swarmMode: {{ provider_settings['swarmMode'] | default('true') }}
+    network: {{ provider_settings['network'] }}
+    swarmModeRefreshSeconds: {{ provider_settings['swarmModeRefreshSeconds'] }}
+    httpClientTimeout: {{ provider_settings['httpClientTimeout'] }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+tls:
+  options:
+    default:
+      minVersion: VersionTLS12
+
+{% if item['certificatesResolvers'] is defined and (item['certificatesResolvers'].keys() | length > 0) -%}
+certificatesResolvers:
+{% for resolver, resolver_settings in item['certificatesResolvers'].items() %}
+  {{ resolver }}:
+    acme:
+      email: {{ resolver_settings['email'] }}
+      caServer: {{ resolver_settings['caServer'] | default('https://acme-v02.api.letsencrypt.org/directory') }}
+{% if resolver_settings['preferredChain'] is defined%}
+      preferredChain: {{ resolver_settings['preferredChain'] }}
+{% endif %}
+      storage: {{ resolver_settings['storage'] | default('acme.json') }}
+      keyType: {{ resolver_settings['keyType'] | default('RSA4096') }}
+{% if resolver_settings['challenge'] == "dnsChallenge" %}
+      dnsChallenge:
+        delayBeforeCheck: {{ resolver_settings['delayBeforeCheck'] | default('0') }}
+        disablePropagationCheck: {{ resolver_settings['disablePropagationCheck'] | default('false') }}
+        provider: {{ resolver_settings['provider'] }}
+{% if resolver_settings['resolvers'] is defined %}
+        resolvers:
+{% for server in resolver_settings['resolvers'] %}
+          - {{ server | quote }}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% if resolver_settings['challenge'] == "tlsChallenge" %}
+      tlsChallenge:
+        entryPoint: {{ resolver_settings['tlsChallenge']['entryPoint'] | default('web')}}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if item['entryPoints'] is defined and (item['entryPoints'].keys() | length > 0) -%}
+entryPoints:
+{% for point, point_settings in item['entryPoints'].items() %}
+  {{ point }}:
+    address: {{ point_settings['address'] | quote }}
+{% if point_settings['transport'] is defined %}
+    transport:
+      lifeCycle:
+        requestAcceptGraceTimeout: {{ point_settings['transport']['requestAcceptGraceTimeout'] | default('0') }}
+        graceTimeOut: {{ point_settings['transport']['graceTimeOut'] | default('10s') }}
+      respondingTimeouts:
+        readTimeout: {{ point_settings['transport']['readTimeout'] | default('0') }}
+        writeTimeout: {{ point_settings['transport']['writeTimeout'] | default('0') }}
+        idleTimeout: {{ point_settings['transport']['idleTimeout'] | default('180s') }}
+{% endif %}
+{% if point_settings['proxyProtocol'] is defined %}
+    proxyProtocol:
+      insecure: {{ point_settings['proxyProtocol']['insecure'] | default('false') }}
+{% if point_settings['proxyProtocol']['trustedIPs'] is defined %}
+      trustedIPs:
+{% for ip in point_settings['proxyProtocol']['trustedIPs'] %}
+        - {{ ip }}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% if point_settings['forwardedHeaders'] is defined %}
+    forwardedHeaders:
+      insecure: {{ point_settings['forwardedHeaders']['insecure'] | default('false') }}
+{% if point_settings['forwardedHeaders']['trustedIPs'] is defined %}
+      trustedIPs:
+{% for ip in point_settings['forwardedHeaders']['trustedIPs'] %}
+        - {{ ip }}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+

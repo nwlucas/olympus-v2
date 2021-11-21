@@ -1,0 +1,50 @@
+---
+# defaults file for traefik_install
+traefik_config:
+  global:
+    checkNewVersion: false
+    sendAnonymousUsage: false
+  pilot:
+    dashboard: false
+  ping: {}
+  api:
+    dashboard: true
+    debug: true
+  log:
+    level: "DEBUG"
+    format: "json"
+    filePath: "{{ traefik_config_file | dirname }}/logs/traefik.log"
+  accessLog:
+    format: "json"
+    filePath: "{{ traefik_config_file | dirname }}/logs/access.log"
+    fields:
+      names:
+        - "StartUTC: drop"
+  providers:
+    file:
+      directory: "{{ traefik_config_file | dirname }}/configs/"
+  certificatesResolvers:
+    le-prod:
+      email: "{{ cf_email }}"
+      storage: "{{ traefik_config_file | dirname }}/certs/acme.json"
+      keyType: "EC256"
+      challenge: "dnsChallenge"
+      provider: "cloudflare"
+      resolvers:
+        - "1.1.1.1:53"
+        - "8.8.8.8:53"
+  entryPoints:
+    kube_api:
+      address: ":6443"
+
+    web:
+      address: ":80"
+      http:
+        redirections:
+          entryPoint:
+            to: websecure
+            scheme: https
+            permanent: true
+
+    websecure:
+      address: ":443"

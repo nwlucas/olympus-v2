@@ -1,32 +1,3 @@
-variable "CF_ACCOUNT_ID" {
-  type = string
-}
-variable "APP_ZONE" {
-  type = string
-}
-
-variable "access_groups" {
-  type = map(object({
-    email_includes = optional(list(string))
-  }))
-}
-
-variable "lb_apps" {
-  type = list(object({
-    app_name         = string
-    host_name        = optional(string)
-    domain           = optional(string)
-    backend          = string
-    proto            = optional(string)
-    port             = optional(string)
-    path             = optional(string)
-    access_enabled   = optional(bool)
-    admin_group      = string
-    session_duration = optional(string)
-    type             = optional(string)
-  }))
-}
-
 locals {
   access_groups = defaults(var.access_groups, {
     email_includes = ""
@@ -41,6 +12,7 @@ locals {
     session_duration = "1h"
     access_enabled   = true
     type             = "self_hosted"
+    public_cert      = false
   })
 
   cf_apps = [for app in local.lb_apps :
@@ -49,10 +21,11 @@ locals {
       host_name      = app.host_name == "" ? app.app_name : app.host_name
       domain         = app.domain
       access_enabled = app.access_enabled
-      service        = format("%s://%s:%s%s", app.proto, app.backend, app.port, app.path)
+      service        = format("%s://%s:%s", app.proto, app.backend, app.port)
       proto          = app.proto
       port           = app.port
       path           = app.path
+      public_cert    = app.public_cert
       cname          = app.host_name == "" ? format("%s.%s", app.app_name, app.domain) : format("%s.%s", app.host_name, app.domain)
     }
   ]

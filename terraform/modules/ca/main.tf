@@ -54,6 +54,13 @@ variable "ca_public_key_path" {
   description = "Path at which CA Public key will be stored."
 }
 
+variable "aws_bucket" {
+  type = string
+}
+
+variable "aws_key" {
+  type = string
+}
 variable "write_local" {
   type        = bool
   description = "Determine if to write certs to local files."
@@ -85,6 +92,18 @@ resource "local_file" "ca_public_key" {
 
   content  = tls_self_signed_cert.ca.cert_pem
   filename = var.ca_public_key_path
+}
+
+resource "aws_s3_bucket_object" "ca_key" {
+  bucket  = var.aws_bucket
+  key     = format("%s/ca.key", var.aws_key)
+  content = tls_private_key.ca.private_key_pem
+}
+
+resource "aws_s3_bucket_object" "ca_crt" {
+  bucket  = var.aws_bucket
+  key     = format("%s/ca.crt", var.aws_key)
+  content = tls_self_signed_cert.ca.cert_pem
 }
 
 output "ca_key_algorithm" {

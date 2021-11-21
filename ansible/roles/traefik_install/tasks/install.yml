@@ -1,0 +1,208 @@
+---
+# tasks file for traefik_install
+---
+- name: "traefik-setup | test if binary is already installed"
+  ansible.builtin.stat:
+    path: "{{ traefik_proxy.binary_path }}"
+  register: traefik_proxy_binary
+  tags:
+    - "traefik-setup"
+
+- name: "traefik-setup | attempt to register the traefik binary version is already installed."
+  ansible.builtin.command: "{{ traefik_proxy.binary_path }} version"
+  register: traefik_proxy_binary_output
+  changed_when: false
+  when: traefik_proxy_binary.stat.exists
+  tags:
+    - "traefik-setup"
+
+- name: "traefik-setup | download the archive Traefik"
+  ansible.builtin.get_url:
+    url: "{{ traefik_proxy['url'] }}/v{{ traefik_proxy['version'] }}/traefik_v{{ traefik_proxy['version'] }}_{{ ansible_facts['system'] | lower }}_amd64.tar.gz"
+    dest: "/tmp/traefik_v{{ traefik_proxy['version'] }}_{{ ansible_facts['system'] | lower }}_amd64.tar.gz"
+    checksum: "sha256:{{ traefik_proxy['url'] }}/v{{ traefik_proxy['version'] }}/traefik_v{{ traefik_proxy['version'] }}_checksums.txt"
+  register: traefik_proxy_dl
+  when: ansible_facts['architecture'] == 'x86_64' and not traefik_proxy_binary.stat.exists
+  tags:
+    - "traefik-setup"
+
+- name: "traefik-setup | test if binary archive is downloaded."
+  ansible.builtin.stat:
+    path: "/tmp/traefik_v{{ traefik_proxy['version'] }}_{{ ansible_facts['system'] | lower }}_amd64.tar.gz"
+  register: traefik_proxy_archive
+  tags:
+    - "traefik-setup"
+
+- name: "traefik-setup | set up traefik group"
+  ansible.builtin.group:
+    name: "traefik"
+    gid: "1021"
+    system: true
+    state: "present"
+  tags:
+    - "traefik-setup"
+
+- name: "traefik-setup | set up traefik user"
+  ansible.builtin.user:
+    name: "traefik"
+    comment: "Traefik User"
+    groups: "traefik"
+    uid: "1021"
+    system: true
+    state: "present"
+  tags:
+    - "traefik-setup"
+
+- name: "traefik-setup | extract the binary"
+  ansible.builtin.unarchive:
+    src: "/tmp/traefik_v{{ traefik_proxy['version'] }}_{{ ansible_facts['system'] | lower }}_amd64.tar.gz"
+    dest: "/opt/bin"
+    creates: "/opt/bin/traefik"
+    mode: "0755"
+    owner: "traefik"
+    group: "traefik"
+  register: traefik_proxy_binary_extracted
+  when: traefik_proxy_archive.stat.exists
+  tags:
+    - "traefik-setup"
+
+- name: "traefik-setup | remove downloaded archive files."
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  when: traefik_proxy_archive.stat.exists
+  loop:
+    - "/tmp/traefik_v{{ traefik_proxy['version'] }}_{{ ansible_facts['system'] | lower }}_amd64.tar.gz"
+    - "/opt/bin/CHANGELOG.md"
+    - "/opt/bin/LICENSE.md"
+  tags:
+    - "traefik-setup"
+
+- name: "traefik-setup | ensure traefik directories owned by traefik."
+  ansible.builtin.file:
+    path: "{{ item }}"
+    recurse: false
+    owner: "traefik"
+    group: "traefik"
+    mode: "0775"
+    state: "directory"
+  loop:
+    - "{{ traefik_config_file | dirname }}"
+    - "{{ traefik_config_file | dirname }}/configs"
+    - "{{ traefik_config_file | dirname }}/logs"
+  tags:
+    - "traefik-setup"
+
+- name: "traefik-setup | ensure traefik certs directories owned by traefik."
+  ansible.builtin.file:
+    path: "{{ item }}"
+    recurse: false
+    owner: "traefik"
+    group: "traefik"
+    mode: "0744"
+    state: "directory"
+  loop:
+    - "{{ traefik_config_file | dirname }}/certs"
+  tags:
+    - "traefik-setup"
+
+- name: "traefik-setup | ensure traefik log files exist."
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: "traefik"
+    group: "traefik"
+    mode: "0755"
+    modification_time: "preserve"
+    access_time: "preserve"
+    state: "touch"
+  loop:
+    - "{{ traefik_config_file | dirname }}/logs/access.log"
+    - "{{ traefik_config_file | dirname }}/logs/traefik.log"
+  tags:
+    - "traefik-setup"
+
+- name: "traefik-setup | setting environment variables"
+  ansible.builtin.blockinfile:
+    path: "/etc/default/traefik"
+    block: |
+      CF_DNS_API_TOKEN={{ vault_cf_token }}
+    insertbefore: BOF
+    create: true
+    owner: "traefik"
+    group: traefik
+    mode: "0644"
+    state: "present"
+  tags:
+    - "traefik-setup"
+
+- name: "traefik-setup | create systemd unit for Traefik"
+  ansible.builtin.template:
+    src: "systemd/service.j2"
+    dest: "/etc/systemd/system/{{ item['name'] }}"
+    mode: "0644"
+    owner: "root"
+    group: "root"
+  when: ansible_facts['os_family'] == 'Debian'
+  loop:
+    - "{{ traefik_proxy.service_unit }}"
+  notify:
+    - "restart traefik services"
+  tags:
+    - "traefik-setup"
+
+- name: Force all notified handlers to run at this point, not waiting for normal sync points
+  meta: flush_handlers
+
+- name: "traefik-setup | create path unit for Traefik"
+  ansible.builtin.template:
+    src: "systemd/path.j2"
+    dest: "/etc/systemd/system/{{ item['name'] }}"
+    mode: "0644"
+    owner: "root"
+    group: "root"
+  when: ansible_facts['os_family'] == 'Debian'
+  loop:
+    - "{{ traefik_proxy.path_unit }}"
+  notify:
+    - reload systemd
+  tags:
+    - "traefik-setup"
+
+- name: Force all notified handlers to run at this point, not waiting for normal sync points
+  meta: flush_handlers
+
+- name: "traefik-setup | setting systemd read of envrionment variable"
+  ansible.builtin.blockinfile:
+    path: "/etc/systemd/system/{{ traefik_proxy['service_unit']['name'] }}.d/10-environment.conf"
+    block: |
+      [Service]
+      EnvironmentFile=-/etc/default/traefik
+    insertbefore: BOF
+    create: yes
+    owner: root
+    group: root
+    mode: "0644"
+    state: present
+  when: ansible_facts['os_family'] == 'Debian'
+  notify:
+    - "restart traefik services"
+  tags:
+    - "traefik-setup"
+
+- name: Force all notified handlers to run at this point, not waiting for normal sync points
+  meta: flush_handlers
+
+- name: "traefik-setup | ensure services are enabled and started"
+  ansible.builtin.systemd:
+    name: "{{ item.name }}"
+    state: started
+    daemon_reload: yes
+    enabled: yes
+  when: ansible_facts['os_family'] == 'Debian'
+  notify:
+    - reload systemd
+  loop:
+    - "{{ traefik_proxy.service_unit }}"
+    - "{{ traefik_proxy.path_unit }}"
+  tags:
+    - "traefik-setup"

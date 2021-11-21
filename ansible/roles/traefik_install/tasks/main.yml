@@ -1,0 +1,17 @@
+---
+- name: install Traefik
+  ansible.builtin.include_tasks: ./install.yml
+  tags:
+    - traefik-setup
+    - traefik-install
+
+- name: configure Traefik
+  ansible.builtin.include_tasks: ./config.yml
+  tags:
+    - traefik-setup
+    - traefik-config
+
+- name: uninstall Traefik
+  ansible.builtin.include_tasks: ./cleanup.yml
+  tags:
+    - traefik-cleanup

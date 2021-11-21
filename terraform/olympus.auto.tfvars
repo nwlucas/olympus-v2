@@ -105,6 +105,7 @@ lb_apps = [
     port           = "8200"
     path           = "/ui"
     admin_group    = "olympus_group"
+    public_cert    = true
   },
   {
     app_name       = "vault-tcp"
@@ -114,27 +115,26 @@ lb_apps = [
     proto          = "tcp"
     port           = "8200"
     admin_group    = ""
+    public_cert    = true
   }
 ]
 
+lb_hosts = {
+  "rpi-06" = {
+    domain          = "nwlnexus.net"
+    traefik_enabled = true
+  }
+}
+
 hashi_hosts = {
   "rpi-01" = {
-    consul_enabled = true
-    domain         = "nwlnexus.net"
-    nomad_enabled  = true
-    vault_enabled  = true
+    domain = "nwlnexus.net"
   },
   "rpi-02" = {
-    consul_enabled = true
-    domain         = "nwlnexus.net"
-    nomad_enabled  = true
-    vault_enabled  = true
+    domain = "nwlnexus.net"
   },
   "rpi-03" = {
-    consul_enabled = true
-    domain         = "nwlnexus.net"
-    nomad_enabled  = true
-    vault_enabled  = true
+    domain = "nwlnexus.net"
   }
 }
 

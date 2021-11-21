@@ -1,0 +1,24 @@
+- name: "traefik-config | placing Traefik static configs"
+  ansible.builtin.template:
+    src: "traefik/config.j2"
+    dest: "{{ traefik_config_file }}"
+    owner: traefik
+    group: traefik
+    mode: "0755"
+  notify:
+    - "restart traefik services"
+  loop:
+    - "{{ traefik_config }}"
+  tags:
+    - "traefik-config"
+
+- name: "traefik-config | Put in dynamic routers"
+  ansible.builtin.template:
+    src: "traefik/router.j2"
+    dest: "{{ traefik_config_file | dirname }}/configs/{{ item['name'] }}.yaml"
+    owner: traefik
+    group: traefik
+    mode: "0644"
+  loop: "{{ proxy_sites['routers'] }}"
+  tags:
+    - "traefik-config"

@@ -88,6 +88,14 @@ variable "cert_private_key_path" {
   description = "Path to store the private key of certificate"
 }
 
+variable "aws_bucket" {
+  type = string
+}
+
+variable "aws_key" {
+  type = string
+}
+
 variable "write_local" {
   type        = bool
   description = "Determine if to write certs to local files."
@@ -138,6 +146,18 @@ resource "local_file" "cert_public_key" {
 
   content  = tls_locally_signed_cert.cert.cert_pem
   filename = var.cert_public_key_path
+}
+
+resource "aws_s3_bucket_object" "cert_key" {
+  bucket  = var.aws_bucket
+  key     = format("%s/cert.key", var.aws_key)
+  content = tls_private_key.cert.private_key_pem
+}
+
+resource "aws_s3_bucket_object" "cert_pem" {
+  bucket  = var.aws_bucket
+  key     = format("%s/cert.pem", var.aws_key)
+  content = tls_locally_signed_cert.cert.cert_pem
 }
 
 output "cert_private_key" {

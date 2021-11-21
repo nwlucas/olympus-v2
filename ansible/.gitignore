@@ -31,3 +31,4 @@ ansible/collections/
 .facts/
 facts/
 **/.vault_init
+backend_info/

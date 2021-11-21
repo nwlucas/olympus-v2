@@ -1,0 +1,58 @@
+udp:
+  routers:
+    {{ item.name }}:
+{% if (item.host is defined) and (item.host != "") %}
+      rule: "Host(`{{ item.host }}`){% if (item.rule is defined) and (item.rule != "") %} && {{ item.rule }}{% endif %}"
+{% else %}
+      rule: "{{ item.rule }}"
+{% endif %}
+{% if (item.resolver is defined) %}
+      tls:
+        certResolver: {{ item.resolver }}
+        domains:
+        - main: {{ item.host }}
+{% endif %}
+      service: {% if item.internal_service is defined %} {{ item.internal_service }}{% else %}{{ item.service.name }}{% endif %}
+
+{% if item.entryPoints is defined %}
+      entryPoints:
+{% for entry in item.entryPoints %}
+      - {{ entry }}
+{% endfor %}
+{% endif %}
+
+{% if item.service is defined %}
+  services:
+    {{ item.service.name }}:
+      {{ item.service.type | default('loadBalancer') }}:
+{% if item.service.serverTransport is defined %}
+        serversTransport: {{ item.service.serverTransport.name }}
+{% endif %}
+        passHostHeader: {{ item.service.passHostHeader | default('false')}}
+{% if item.service.healthCheck is defined %}
+        healthCheck:
+          path: {{ item.service.healthCheck.path }}
+          interval: {{ item.service.healthCheck.interval }}
+          timeout: {{ item.service.healthCheck.timeout }}
+{% if item.service.healthCheck.port is defined %}
+          port: {{ item.service.healthCheck.port }}
+{% endif %}
+{% endif %}
+        servers:
+{% for server in item.service.servers %}
+        - url: {{ server }}
+{% endfor %}
+{% endif%}
+
+{% if item.service.serverTransport is defined %}
+  serversTransports:
+    {{ item.service.serverTransport.name }}:
+      insecureSkipVerify: {{ item.service.serverTransport.insecureSkipVerify | default('false') }}
+{% if item.service.serverTransport.serverName is defined %}
+      serverName: {{ item.service.serverTransport.serverName }}
+{% endif%}
+{% if item.service.serverTransport.certificates is defined %}
+      certFile: {{ item.service.serverTransport.certificates.certFile }}
+      keyFile: {{ item.service.serverTransport.certificates.keyFile }}
+{% endif%}
+{% endif %}

@@ -117,3 +117,24 @@ provider "registry.terraform.io/hashicorp/tls" {
     "zh:fc1e12b713837b85daf6c3bb703d7795eaf1c5177aebae1afcf811dd7009f4b0",
   ]
 }
+
+provider "registry.terraform.io/vancluever/acme" {
+  version     = "2.7.0"
+  constraints = "2.7.0"
+  hashes = [
+    "h1:sPObDCZRBTQ29WvbIW3+eS+2Hix77BRJYyeYu6i3cCM=",
+    "zh:223f0e55ae1c6502535563e4602bf1cc715c0e38e2cb8b028693e561b7c88a70",
+    "zh:3b7f3c33df7187dfc2257aa954a67aac0484a21f0d4d9536cf0fd7bb932ac93c",
+    "zh:54fc2ff4c7a0737f692c6a66913e1de61720c575a4434aca9d5c9b592f6b2844",
+    "zh:557809d50072c3a75669826574c655b8da297bd7c6b14d1eca9ec2d56524fcde",
+    "zh:5d4ba8208f96d64c9e2c9527b58dec0bade94cceb78e55b3a6dac58e245cfb10",
+    "zh:5ddbbeb388c4f3f29b44f6a44840aaca96e040051a25ef455b1178ebfe1b6afc",
+    "zh:6078b9d133100881f7e7580f913b7388fba1c0629f525f37123482593b92c7cd",
+    "zh:6297fba517bfcc2927fbda7e482b8a956d543edd4ce1bf201a38adf5382c1a6d",
+    "zh:68bf64ceb42e9501c20efdb76176e7e3bd4c1cd28511168e797699a23cbe4eb7",
+    "zh:7577f5eff02e7f52ba3c36b7a75737214ca37417e410626e0201c82ec48fdcff",
+    "zh:884c25dd1e013b13f261e6ccf5d8d396be5cd9e1172d8bf89b765f06e543767a",
+    "zh:a2c6a9367652e525a47cbd8da8afafaf6fe79a14a990b89c3f3ef6333626c065",
+    "zh:ec108942d3d639fe271683f3459ca57cb375bae3e23559c5438a9247dd73c3a0",
+  ]
+}

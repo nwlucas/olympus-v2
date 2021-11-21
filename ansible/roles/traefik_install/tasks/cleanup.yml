@@ -1,0 +1,62 @@
+---
+- name: "test for systemd files"
+  ansible.builtin.stat:
+    path: "{{ item['name'] }}"
+  register: traefik_systemd
+  when: ansible_facts['os_family'] == 'Debian'
+  loop:
+    - "{{ traefik_proxy.service_unit }}"
+    - "{{ traefik_proxy.path_unit }}"
+  tags:
+    - "traefik-cleanup"
+
+- name: "ensure services are stopped if proxy_binary !='traefik'"
+  ansible.builtin.systemd:
+    name: "{{ item['name'] }}"
+    state: "stopped"
+  when: ansible_facts['os_family'] == 'Debian'
+    and traefik_systemd.results[ansible_loop.index0].stat.exists
+  notify:
+    - reload systemd
+  loop:
+    - "{{ traefik_proxy.service_unit }}"
+    - "{{ traefik_proxy.path_unit }}"
+  loop_control:
+    extended: true
+  tags:
+    - "traefik-cleanup"
+
+# Tasks below are just there to ensure removal of the artifact
+- name: "ensure removal if and only."
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: "absent"
+  loop:
+    - "{{ traefik_proxy.binary_path }}"
+    - "/etc/default/traefik"
+  tags:
+    - "traefik-cleanup"
+
+- name: "ensure removal of traefik directories."
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: "absent"
+  when: proxy_binary != 'traefik'
+  loop:
+    - "{{ traefik_config_file | dirname }}"
+  tags:
+    - "traefik-cleanup"
+
+- name: "ensure removal if and only."
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item['name'] }}"
+    state: "absent"
+  when: ansible_facts['os_family'] == 'Debian'
+  loop:
+    - "{{ traefik_proxy.service_unit }}"
+    - "{{ traefik_proxy.path_unit }}"
+  tags:
+    - "traefik-cleanup"
+
+- name: Force all notified handlers to run at this point, not waiting for normal sync points
+  meta: flush_handlers

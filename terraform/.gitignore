@@ -11,6 +11,7 @@ helm/traefik-helm-chart
 helm/traefik_values.yaml
 **/terraform.d/
 **/.terraform/*
+**/.terraform
 *.tfstate
 *.plan
 infra.json
