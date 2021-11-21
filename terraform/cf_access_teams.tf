@@ -1,38 +1,68 @@
 variable "CF_ACCOUNT_ID" {
   type = string
 }
-
 variable "APP_ZONE" {
   type = string
 }
 
-variable "access_apps" {
+variable "access_groups" {
+  type = map(object({
+    email_includes = optional(list(string))
+  }))
+}
+
+variable "lb_apps" {
   type = list(object({
-    name             = string
-    service          = string
+    app_name         = string
+    host_name        = optional(string)
+    domain           = optional(string)
+    backend          = string
+    proto            = optional(string)
+    port             = optional(string)
+    path             = optional(string)
+    access_enabled   = optional(bool)
+    admin_group      = string
     session_duration = optional(string)
     type             = optional(string)
   }))
 }
 
 locals {
-  access_apps = defaults(var.access_apps, {
+  access_groups = defaults(var.access_groups, {
+    email_includes = ""
+  })
+
+  lb_apps = defaults(var.lb_apps, {
+    host_name        = ""
+    domain           = var.APP_ZONE
+    proto            = "https"
+    port             = "443"
+    path             = ""
     session_duration = "1h"
+    access_enabled   = true
     type             = "self_hosted"
   })
 
-  cf_apps = [for app in var.access_apps :
+  cf_apps = [for app in local.lb_apps :
     {
-      "name"    = app.name
-      "service" = app.service
-      "cname"   = format("%s.%s", app.name, var.APP_ZONE)
+      app_name       = app.app_name
+      host_name      = app.host_name == "" ? app.app_name : app.host_name
+      domain         = app.domain
+      access_enabled = app.access_enabled
+      service        = format("%s://%s:%s%s", app.proto, app.backend, app.port, app.path)
+      proto          = app.proto
+      port           = app.port
+      path           = app.path
+      cname          = app.host_name == "" ? format("%s.%s", app.app_name, app.domain) : format("%s.%s", app.host_name, app.domain)
     }
   ]
 }
 
 data "cloudflare_zone" "app_zone" {
+  for_each = toset(distinct(compact([for i, app in local.cf_apps : app.domain])))
+
   account_id = var.CF_ACCOUNT_ID
-  name       = var.APP_ZONE
+  name       = each.key
 }
 resource "random_id" "tunnel_secret" {
   byte_length = 35
@@ -44,21 +74,22 @@ resource "cloudflare_argo_tunnel" "olympus_tunnel" {
   secret     = random_id.tunnel_secret.b64_std
 }
 
-resource "cloudflare_access_group" "olympus_group" {
-  account_id = var.CF_ACCOUNT_ID
-  name       = "olympus_group"
+resource "cloudflare_access_group" "access_groups" {
+  for_each = local.access_groups
 
+  account_id = var.CF_ACCOUNT_ID
+  name       = each.key
   include {
-    email = ["nigel.williamslucas@gmail.com", "nigel.williamslucas@pm.me"]
+    email = each.value.email_includes
   }
 }
 
 resource "cloudflare_access_application" "access_apps" {
-  for_each = { for app in local.access_apps : app.name => app }
+  for_each = { for app in local.lb_apps : app.app_name => app if app.access_enabled }
 
-  zone_id          = data.cloudflare_zone.app_zone.id
+  zone_id          = data.cloudflare_zone.app_zone[each.value.domain].id
   name             = each.key
-  domain           = format("%s.%s", each.key, var.APP_ZONE)
+  domain           = each.value.host_name == "" ? format("%s.%s", each.value.app_name, each.value.domain) : format("%s.%s", each.value.host_name, each.value.domain)
   type             = each.value.type
   session_duration = each.value.session_duration
 }
@@ -73,16 +104,18 @@ resource "cloudflare_access_policy" "admin_policies" {
   decision       = "allow"
 
   include {
-    group = [cloudflare_access_group.olympus_group.id]
+    group = [
+      cloudflare_access_group.access_groups[(element([for e in local.lb_apps : e if e.app_name == each.key], 0)).admin_group].id
+    ]
   }
 }
 
-resource "cloudflare_record" "ssh_apps_cnames" {
-  for_each = cloudflare_access_application.access_apps
+resource "cloudflare_record" "apps_cnames" {
+  for_each = { for app in local.cf_apps : app.app_name => app }
 
-  zone_id = data.cloudflare_zone.app_zone.id
+  zone_id = data.cloudflare_zone.app_zone[each.value.domain].id
   type    = "CNAME"
-  name    = each.key
+  name    = each.value.host_name
   value   = format("%s.cfargotunnel.com", cloudflare_argo_tunnel.olympus_tunnel.id)
   proxied = true
 }

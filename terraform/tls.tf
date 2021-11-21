@@ -61,14 +61,20 @@ module "nomad_ca" {
 module "vault_cert" {
   source = "./modules/cert"
 
-  for_each = { for k, v in var.hashi_hosts : k => format("%s.%s", k, v.domain) if v.vault_enabled }
+  for_each = { for k, v in var.hashi_hosts : k => v if v.vault_enabled }
 
   private_key_algorithm   = "ECDSA"
   private_key_ecdsa_curve = "P384"
 
-  common_name        = each.value
-  organization_name  = var.organization_name
-  dns_names          = [each.key, each.value, format("%s.service.consul", each.key), format("%s.service.consul", each.value)]
+  common_name       = each.value
+  organization_name = var.organization_name
+  dns_names = [
+    each.key,
+    format("%s.%s", each.key, each.value.domain),
+    format("%s.service.consul", each.key),
+    format("%s.service.consul", format("%s.%s", each.key, each.value.domain)),
+    "vault-server"
+  ]
   ip_addresses       = data.dns_a_record_set.hashi_hosts[each.key].addrs
   ca_key_algorithm   = module.vault_ca.ca_key_algorithm
   ca_private_key_pem = module.vault_ca.ca_private_key_pem
@@ -88,14 +94,20 @@ module "vault_cert" {
 module "consul_cert" {
   source = "./modules/cert"
 
-  for_each = { for k, v in var.hashi_hosts : k => format("%s.%s", k, v.domain) if v.consul_enabled }
+  for_each = { for k, v in var.hashi_hosts : k => v if v.consul_enabled }
 
   private_key_algorithm   = "ECDSA"
   private_key_ecdsa_curve = "P384"
 
-  common_name        = each.value
-  organization_name  = var.organization_name
-  dns_names          = [each.key, each.value, format("%s.service.consul", each.key), format("%s.service.consul", each.value)]
+  common_name       = each.value
+  organization_name = var.organization_name
+  dns_names = [
+    each.key,
+    format("%s.%s", each.key, each.value.domain),
+    format("%s.service.consul", each.key),
+    format("%s.service.consul", format("%s.%s", each.key, each.value.domain)),
+    "consul-server"
+  ]
   ip_addresses       = data.dns_a_record_set.hashi_hosts[each.key].addrs
   ca_key_algorithm   = module.consul_ca.ca_key_algorithm
   ca_private_key_pem = module.consul_ca.ca_private_key_pem
@@ -115,14 +127,20 @@ module "consul_cert" {
 module "nomad_cert" {
   source = "./modules/cert"
 
-  for_each = { for k, v in var.hashi_hosts : k => format("%s.%s", k, v.domain) if v.nomad_enabled }
+  for_each = { for k, v in var.hashi_hosts : k => v if v.nomad_enabled }
 
   private_key_algorithm   = "ECDSA"
   private_key_ecdsa_curve = "P384"
 
-  common_name        = each.value
-  organization_name  = var.organization_name
-  dns_names          = [each.key, each.value, format("%s.service.consul", each.key), format("%s.service.consul", each.value)]
+  common_name       = format("%s.%s", each.key, each.value.domain)
+  organization_name = var.organization_name
+  dns_names = [
+    each.key,
+    format("%s.%s", each.key, each.value.domain),
+    format("%s.service.consul", each.key),
+    format("%s.service.consul", format("%s.%s", each.key, each.value.domain)),
+    "nomad-server"
+  ]
   ip_addresses       = data.dns_a_record_set.hashi_hosts[each.key].addrs
   ca_key_algorithm   = module.nomad_ca.ca_key_algorithm
   ca_private_key_pem = module.nomad_ca.ca_private_key_pem

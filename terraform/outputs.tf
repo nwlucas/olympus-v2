@@ -7,8 +7,6 @@ output "olympus_tunnel" {
     account_id = var.CF_ACCOUNT_ID
   }
 }
-
-
 output "cf_apps" {
   value = local.cf_apps
 }
