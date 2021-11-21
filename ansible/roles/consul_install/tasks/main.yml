@@ -1,2 +1,71 @@
 ---
-# tasks file for consul-install
+# tasks file for consul_install
+
+- name: Include check/asserts
+  ansible.builtin.import_tasks: ./consul_asserts.yml
+
+- name: test for binary
+  ansible.builtin.stat:
+    path: "{{ hashi_binary_dir }}/consul"
+  register: consul_binary
+
+- name: test for symlink to binary
+  ansible.builtin.stat:
+    path: "/usr/local/bin/consul"
+  register: consul_binary_link
+  when: hashi_binary_dir != "/usr/local/bin"
+
+- name: test for systemd service unit
+  ansible.builtin.stat:
+    path: "/etc/systemd/system/consul.service"
+  register: consul_systemd
+
+- name: register binary version
+  ansible.builtin.command:
+    cmd: "{{ hashi_binary_dir }}/consul -v"
+  register: consul_binary_version
+  changed_when: false
+  when: consul_binary.stat.exists
+
+- name: set the discovered binary version
+  ansible.builtin.set_fact:
+    _discovered_binary_version: "{{ consul_binary_version.stdout_lines[0].split(' ')[1][1:] }}"
+  when: consul_binary.stat.exists
+
+- name: testing variable _discovered_binary_version
+  ansible.builtin.debug:
+    var: _discovered_binary_version
+  when: consul_install_debug
+
+- name: determine if to install or upgrade consul binary
+  ansible.builtin.set_fact:
+    _install_consul: true
+  when: (not consul_binary.stat.exists)
+    or (consul_binary.stat.exists and _discovered_binary_version is version(consul_version,operator='lt',version_type='semver'))
+    or consul_install_override
+
+- name: testing variable consul_binary_version
+  ansible.builtin.debug:
+    var: _install_consul
+  when: consul_install_debug
+
+- name: testing variable consul_version to be installed
+  ansible.builtin.debug:
+    var: consul_version
+  when: consul_install_debug and _install_consul
+
+- name: testing variable consul_archive_url to get consul binary from
+  ansible.builtin.debug:
+    var: consul_archive_url
+  when: consul_install_debug and _install_consul
+# - name: install consul
+#   ansible.builtin.include_tasks: ./consul_install.yml
+#   when: _install_consul
+
+# - name: install consul certs
+#   ansible.builtin.include_tasks: ./consul_certs.yml
+#   when: (_consul_certs is defined and _consul_certs.keys()|length > 0)
+#     or (_consul_ca is defined and _consul_ca.keys()|length > 0)
+
+# - name: configure consul
+#   ansible.builtin.include_tasks: ./consul_config.yml

@@ -1,2 +1,41 @@
 ---
-# defaults file for consul-install
+# defaults file for consul_install
+_install_consul: false
+
+consul_install_debug: false
+hashi_binary_dir: "/usr/local/bin"
+
+consul_install_override: false
+
+consul_version: "1.10.4"
+consul_user: "consul"
+consul_group: "consul"
+consul_install_dependencies: ["unzip"]
+
+consul_config_path: "/opt/consul/consul.hcl"
+consul_archive_url: "https://releases.hashicorp.com/consul/{{ consul_version }}"
+consul_dirs:
+  - dir: "{{ hashi_binary_dir }}"
+    owner: "root"
+    group: "root"
+  - dir: "{{ consul_config_path | dirname }}"
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+  - dir: "{{ consul_config_path | dirname }}/data"
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+  - dir: "{{ consul_config_path | dirname }}/certs"
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+
+_def_consul_certs: {}
+_def_consul_ca: {}
+
+## consul configuration variables
+
+consul_listener_port: 8200
+consul_cluster_port: 8201
+consul_listener_interface: "default"
+
+consul_storage: "raft"
+consul_ui: true
