@@ -1,0 +1,88 @@
+[Unit]
+Description={{ item['Description'] }}
+Documentation={{ item['Documentation'] | default('Documentation line does here.') }}
+{% if item['Before'] is defined %}
+Before={{ item['Before'] | join(' ') }}
+{% endif %}
+{% if item['After'] is defined %}
+After={{ item['After'] | join(' ') }}
+{% endif %}
+{% if item['Wants'] is defined %}
+Wants={{ item['Wants'] | join(' ') }}
+{% endif %}
+{% if item['Requires'] is defined %}
+Requires={{ item['Requires'] | join(' ') }}
+{% endif %}
+{% if item['ConditionPathExists'] is defined %}
+{% for line in item['ConditionPathExists'] %}
+ConditionPathExists={{ line }}
+{% endfor %}
+{% endif %}
+{% if item['AssertFileIsExecutable'] is defined %}
+{% for line in item['AssertFileIsExecutable'] %}
+AssertFileIsExecutable={{ line }}
+{% endfor %}
+{% endif %}
+
+[Service]
+Type={{ item['Type'] | default('simple') }}
+{% if item['Restart'] is defined %}
+Restart={{ item['Restart'] }}
+{% endif %}
+{% if item['User'] is defined %}
+User={{ item['User'] }}
+{% endif %}
+{% if item['Group'] is defined %}
+Group={{ item['Group'] }}
+{% endif %}
+{% if item['ExecStartPre'] is defined %}
+{% for line in item['ExecStartPre'] %}
+ExecStartPre={{ line }}
+{% endfor %}
+{% endif %}
+ExecStart={{ item['ExecStart'] }}
+{% if item['ExecReload'] is defined %}
+ExecReload={{ item['ExecReload'] }}
+{% endif %}
+{% if item['TimeoutStopSec'] is defined %}
+TimeoutStopSec={{ item['TimeoutStopSec'] }}
+{% endif %}
+{% if item['LimitNOFILE'] is defined %}
+LimitNOFILE={{ item['LimitNOFILE'] }}
+{% endif %}
+{% if item['LimitNPROC'] is defined %}
+LimitNPROC={{ item['LimitNPROC'] }}
+{% endif %}
+{% if item['PrivateTmp'] is defined %}
+PrivateTmp={{ item['PrivateTmp'] }}
+{% endif %}
+{% if item['ProtectHome'] is defined %}
+ProtectHome={{ item['ProtectHome'] }}
+{% endif %}
+{% if item['ProtectSystem'] is defined %}
+ProtectSystem={{ item['ProtectSystem'] }}
+{% endif %}
+{% if item['ReadWriteDirectories'] is defined %}
+ReadWriteDirectories={{ item['ReadWriteDirectories'] | join(' ') }}
+{% endif %}
+{% if item['ReadWritePaths'] is defined %}
+ReadWritePaths={{ item['ReadWritePaths'] | join(' ') }}
+{% endif %}
+{% if item['ReadOnlyPaths'] is defined %}
+ReadOnlyPaths={{ item['ReadOnlyPaths'] | join(' ') }}
+{% endif %}
+{% if item['AmbientCapabilities'] is defined %}
+AmbientCapabilities={{ item['AmbientCapabilities'] | join(' ') }}
+{% endif %}
+{% if item['CapabilityBoundingSet'] is defined %}
+CapabilityBoundingSet={{ item['CapabilityBoundingSet'] | join(' ') }}
+{% endif %}
+{% if item['NoNewPrivileges'] is defined %}
+NoNewPrivileges={{ item['NoNewPrivileges'] }}
+{% endif %}
+
+[Install]
+{% if item['Alias'] is defined %}
+Alias={{ item['Alias'] | join(' ') }}
+{% endif %}
+WantedBy={{ item['WantedBy'] | default('multi-user.target') }}

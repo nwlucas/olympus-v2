@@ -127,6 +127,16 @@
         - cloudflare-install
         - cf-install
 
+    - role: traefik_install
+      when:
+        - "'cloudflared_nodes' in group_names"
+        - install_traefik
+      tags:
+        - traefik-install
+        - traefik-setup
+        - traefik-cleanup
+        - traefik-config
+
     - role: vault_install
       when: "'vault_servers' in group_names"
       vars:

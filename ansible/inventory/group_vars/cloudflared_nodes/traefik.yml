@@ -1,0 +1,3 @@
+install_traefik: true
+
+traefik_config_file: "/opt/traefik/traefik.yaml"

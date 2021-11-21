@@ -1,15 +1,15 @@
 ---
 # tasks file for traefik_install
----
+
 - name: "traefik-setup | test if binary is already installed"
   ansible.builtin.stat:
-    path: "{{ traefik_proxy.binary_path }}"
+    path: "{{ traefik_binary_path }}"
   register: traefik_proxy_binary
   tags:
     - "traefik-setup"
 
 - name: "traefik-setup | attempt to register the traefik binary version is already installed."
-  ansible.builtin.command: "{{ traefik_proxy.binary_path }} version"
+  ansible.builtin.command: "{{ traefik_binary_path }}/traefik version"
   register: traefik_proxy_binary_output
   changed_when: false
   when: traefik_proxy_binary.stat.exists
@@ -35,7 +35,7 @@
 
 - name: "traefik-setup | set up traefik group"
   ansible.builtin.group:
-    name: "traefik"
+    name: "{{ traefik_group }}"
     gid: "1021"
     system: true
     state: "present"
@@ -44,23 +44,33 @@
 
 - name: "traefik-setup | set up traefik user"
   ansible.builtin.user:
-    name: "traefik"
+    name: "{{ traefik_user }}"
     comment: "Traefik User"
-    groups: "traefik"
+    group: "{{ traefik_group }}"
     uid: "1021"
     system: true
+    shell: "/sbin/nologin"
+    home: "{{ traefik_config_file | dirname }}"
     state: "present"
   tags:
     - "traefik-setup"
 
+- name: ensure the binary directory exists
+  ansible.builtin.file:
+    path: "{{ traefik_binary_path }}"
+    owner: "root"
+    group: "root"
+    mode: 0755
+    state: directory
+  when: traefik_binary_path != "/usr/local/bin"
+
 - name: "traefik-setup | extract the binary"
   ansible.builtin.unarchive:
     src: "/tmp/traefik_v{{ traefik_proxy['version'] }}_{{ ansible_facts['system'] | lower }}_amd64.tar.gz"
-    dest: "/opt/bin"
-    creates: "/opt/bin/traefik"
+    dest: "{{ traefik_binary_path }}"
     mode: "0755"
-    owner: "traefik"
-    group: "traefik"
+    owner: "{{ traefik_user }}"
+    group: "{{ traefik_group }}"
   register: traefik_proxy_binary_extracted
   when: traefik_proxy_archive.stat.exists
   tags:
@@ -73,8 +83,8 @@
   when: traefik_proxy_archive.stat.exists
   loop:
     - "/tmp/traefik_v{{ traefik_proxy['version'] }}_{{ ansible_facts['system'] | lower }}_amd64.tar.gz"
-    - "/opt/bin/CHANGELOG.md"
-    - "/opt/bin/LICENSE.md"
+    - "{{ traefik_binary_path }}/CHANGELOG.md"
+    - "{{ traefik_binary_path }}/LICENSE.md"
   tags:
     - "traefik-setup"
 
@@ -82,8 +92,8 @@
   ansible.builtin.file:
     path: "{{ item }}"
     recurse: false
-    owner: "traefik"
-    group: "traefik"
+    owner: "{{ traefik_user }}"
+    group: "{{ traefik_group }}"
     mode: "0775"
     state: "directory"
   loop:
@@ -97,8 +107,8 @@
   ansible.builtin.file:
     path: "{{ item }}"
     recurse: false
-    owner: "traefik"
-    group: "traefik"
+    owner: "{{ traefik_user }}"
+    group: "{{ traefik_group }}"
     mode: "0744"
     state: "directory"
   loop:
@@ -109,8 +119,8 @@
 - name: "traefik-setup | ensure traefik log files exist."
   ansible.builtin.file:
     path: "{{ item }}"
-    owner: "traefik"
-    group: "traefik"
+    owner: "{{ traefik_user }}"
+    group: "{{ traefik_group }}"
     mode: "0755"
     modification_time: "preserve"
     access_time: "preserve"
@@ -125,11 +135,11 @@
   ansible.builtin.blockinfile:
     path: "/etc/default/traefik"
     block: |
-      CF_DNS_API_TOKEN={{ vault_cf_token }}
+      CF_DNS_API_TOKEN={{ cf_api_token }}
     insertbefore: BOF
     create: true
-    owner: "traefik"
-    group: traefik
+    owner: "{{ traefik_user }}"
+    group: "{{ traefik_group }}"
     mode: "0644"
     state: "present"
   tags:
@@ -178,7 +188,7 @@
       [Service]
       EnvironmentFile=-/etc/default/traefik
     insertbefore: BOF
-    create: yes
+    create: true
     owner: root
     group: root
     mode: "0644"
@@ -196,8 +206,8 @@
   ansible.builtin.systemd:
     name: "{{ item.name }}"
     state: started
-    daemon_reload: yes
-    enabled: yes
+    daemon_reload: true
+    enabled: true
   when: ansible_facts['os_family'] == 'Debian'
   notify:
     - reload systemd

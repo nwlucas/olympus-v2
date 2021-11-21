@@ -1,5 +1,58 @@
 ---
 # defaults file for traefik_install
+###############
+# Traefik Proxy
+###############
+traefik_config_file: "/etc/traefik/traefik.yaml"
+traefik_binary_path: "/opt/bin"
+
+traefik_user: "traefik"
+traefik_group: "traefik"
+
+traefik_proxy:
+  url: "https://github.com/traefik/traefik/releases/download"
+  version: "2.5.4"
+  path_unit:
+    name: "traefik.path"
+    Description: "Watch for config file changes for Traefik Proxy"
+    Path: "{{ traefik_config_file }}"
+  service_unit:
+    name: "traefik.service"
+    Description: "Traefik Proxy"
+    Documentation: "https://doc.traefik.io/traefik/"
+    User: "traefik"
+    Group: "traefik"
+    Restart: "on-abnormal"
+    ExecStart: "{{ traefik_binary_path }} --configfile={{ traefik_config_file }}"
+    TimeoutStopSec: "5s"
+    LimitNOFILE: "1048576"
+    LimitNPROC: "512"
+    PrivateTmp: true
+    ProtectHome: true
+    ProtectSystem: true
+    AmbientCapabilities:
+      - "CAP_NET_BIND_SERVICE"
+    CapabilityBoundingSet:
+      - "CAP_NET_BIND_SERVICE"
+    NoNewPrivileges: true
+    AssertFileIsExecutable:
+      - "{{ traefik_binary_path }}"
+    ConditionPathExists:
+      - "{{ traefik_binary_path }}"
+      - "{{ traefik_config_file }}"
+    After:
+      - "network.target"
+      - "network-online.target"
+    Wants:
+      - "network-online.target"
+      - "systemd-networkd-wait-online.service"
+    ReadWriteDirectories:
+      - "{{ traefik_config_file | dirname }}"
+      - "{{ traefik_config_file | dirname }}/logs"
+      - "{{ traefik_config_file | dirname }}/certs"
+      - "{{ traefik_config_file | dirname }}/configs"
+      - "-{{ traefik_config_file | dirname }}/acme"
+
 traefik_config:
   global:
     checkNewVersion: false
