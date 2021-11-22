@@ -72,18 +72,6 @@
   tags:
     - "traefik-setup"
 
-- name: "remove downloaded archive files."
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  when: traefik_proxy_archive.stat.exists
-  loop:
-    - "/tmp/traefik_v{{ traefik_proxy['version'] }}_{{ ansible_facts['system'] | lower }}_amd64.tar.gz"
-    - "{{ traefik_binary_path }}/CHANGELOG.md"
-    - "{{ traefik_binary_path }}/LICENSE.md"
-  tags:
-    - "traefik-setup"
-
 - name: "ensure traefik directories owned by traefik."
   ansible.builtin.file:
     path: "{{ item }}"

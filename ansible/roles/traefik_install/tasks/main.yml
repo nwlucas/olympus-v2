@@ -22,5 +22,8 @@
 - name: uninstall Traefik
   ansible.builtin.include_tasks:
     file: cleanup.yml
+    apply:
+      tags:
+        - traefik-cleanup
   tags:
     - traefik-cleanup
