@@ -1,14 +1,14 @@
 ---
 # tasks file for traefik_install
 
-- name: "traefik-setup | test if binary is already installed"
+- name: "test if binary is already installed"
   ansible.builtin.stat:
-    path: "{{ traefik_binary_path }}"
+    path: "{{ traefik_binary_path }}/traefik"
   register: traefik_proxy_binary
   tags:
     - "traefik-setup"
 
-- name: "traefik-setup | attempt to register the traefik binary version is already installed."
+- name: "attempt to register the traefik binary version is already installed."
   ansible.builtin.command: "{{ traefik_binary_path }}/traefik version"
   register: traefik_proxy_binary_output
   changed_when: false
@@ -16,42 +16,10 @@
   tags:
     - "traefik-setup"
 
-- name: "traefik-setup | download the archive Traefik"
-  ansible.builtin.get_url:
-    url: "{{ traefik_proxy['url'] }}/v{{ traefik_proxy['version'] }}/traefik_v{{ traefik_proxy['version'] }}_{{ ansible_facts['system'] | lower }}_amd64.tar.gz"
-    dest: "/tmp/traefik_v{{ traefik_proxy['version'] }}_{{ ansible_facts['system'] | lower }}_amd64.tar.gz"
-    checksum: "sha256:{{ traefik_proxy['url'] }}/v{{ traefik_proxy['version'] }}/traefik_v{{ traefik_proxy['version'] }}_checksums.txt"
-  register: traefik_proxy_dl
-  when: ansible_facts['architecture'] == 'x86_64' and not traefik_proxy_binary.stat.exists
-  tags:
-    - "traefik-setup"
-
-- name: "traefik-setup | test if binary archive is downloaded."
-  ansible.builtin.stat:
-    path: "/tmp/traefik_v{{ traefik_proxy['version'] }}_{{ ansible_facts['system'] | lower }}_amd64.tar.gz"
-  register: traefik_proxy_archive
-  tags:
-    - "traefik-setup"
-
-- name: "traefik-setup | set up traefik group"
-  ansible.builtin.group:
-    name: "{{ traefik_group }}"
-    gid: "1021"
-    system: true
-    state: "present"
-  tags:
-    - "traefik-setup"
-
-- name: "traefik-setup | set up traefik user"
-  ansible.builtin.user:
-    name: "{{ traefik_user }}"
-    comment: "Traefik User"
-    group: "{{ traefik_group }}"
-    uid: "1021"
-    system: true
-    shell: "/sbin/nologin"
-    home: "{{ traefik_config_file | dirname }}"
-    state: "present"
+- name: set dicovered version of traefik
+  ansible.builtin.set_fact:
+    _discovered_version: "{{ traefik_proxy_binary_output.stdout_lines[0].split(' ')[1] | trim }}"
+  when: traefik_proxy_binary.stat.exists
   tags:
     - "traefik-setup"
 
@@ -64,19 +32,47 @@
     state: directory
   when: traefik_binary_path != "/usr/local/bin"
 
-- name: "traefik-setup | extract the binary"
-  ansible.builtin.unarchive:
-    src: "/tmp/traefik_v{{ traefik_proxy['version'] }}_{{ ansible_facts['system'] | lower }}_amd64.tar.gz"
-    dest: "{{ traefik_binary_path }}"
-    mode: "0755"
-    owner: "{{ traefik_user }}"
-    group: "{{ traefik_group }}"
-  register: traefik_proxy_binary_extracted
-  when: traefik_proxy_archive.stat.exists
+- name: "set up traefik group"
+  ansible.builtin.group:
+    name: "{{ traefik_group }}"
+    gid: "1021"
+    system: true
+    state: "present"
   tags:
     - "traefik-setup"
 
-- name: "traefik-setup | remove downloaded archive files."
+- name: "set up traefik user"
+  ansible.builtin.user:
+    name: "{{ traefik_user }}"
+    comment: "Traefik User"
+    group: "{{ traefik_group }}"
+    uid: "1021"
+    system: true
+    shell: "/sbin/nologin"
+    home: "{{ traefik_config_file | dirname }}"
+    state: "present"
+  tags:
+    - "traefik-setup"
+
+- name: "download the archive Traefik"
+  ansible.builtin.unarchive:
+    remote_src: true
+    src: "{{ traefik_proxy['url'] }}/v{{ traefik_proxy['version'] }}/traefik_v{{ traefik_proxy['version'] }}_{{ ansible_facts['system'] | lower }}_amd64.tar.gz"
+    dest: "{{ traefik_binary_path }}"
+    owner: "{{ traefik_user }}"
+    group: "{{ traefik_group }}"
+    mode: "0555"
+    extra_opts:
+      - --no-anchored
+      - traefik
+  register: traefik_proxy_dl
+  when:
+    (ansible_facts['architecture'] == 'x86_64' and not traefik_proxy_binary.stat.exists)
+    or (traefik_proxy_binary.stat.exists and ansible_facts['architecture'] == 'x86_64' and _discovered_version)
+  tags:
+    - "traefik-setup"
+
+- name: "remove downloaded archive files."
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent
@@ -88,7 +84,7 @@
   tags:
     - "traefik-setup"
 
-- name: "traefik-setup | ensure traefik directories owned by traefik."
+- name: "ensure traefik directories owned by traefik."
   ansible.builtin.file:
     path: "{{ item }}"
     recurse: false
@@ -103,7 +99,7 @@
   tags:
     - "traefik-setup"
 
-- name: "traefik-setup | ensure traefik certs directories owned by traefik."
+- name: "ensure traefik certs directories owned by traefik."
   ansible.builtin.file:
     path: "{{ item }}"
     recurse: false
@@ -116,7 +112,7 @@
   tags:
     - "traefik-setup"
 
-- name: "traefik-setup | ensure traefik log files exist."
+- name: "ensure traefik log files exist."
   ansible.builtin.file:
     path: "{{ item }}"
     owner: "{{ traefik_user }}"
@@ -131,7 +127,7 @@
   tags:
     - "traefik-setup"
 
-- name: "traefik-setup | setting environment variables"
+- name: "setting environment variables"
   ansible.builtin.blockinfile:
     path: "/etc/default/traefik"
     block: |
@@ -145,7 +141,7 @@
   tags:
     - "traefik-setup"
 
-- name: "traefik-setup | create systemd unit for Traefik"
+- name: "create systemd unit for Traefik"
   ansible.builtin.template:
     src: "systemd/service.j2"
     dest: "/etc/systemd/system/{{ item['name'] }}"
@@ -163,7 +159,7 @@
 - name: Force all notified handlers to run at this point, not waiting for normal sync points
   meta: flush_handlers
 
-- name: "traefik-setup | create path unit for Traefik"
+- name: "create path unit for Traefik"
   ansible.builtin.template:
     src: "systemd/path.j2"
     dest: "/etc/systemd/system/{{ item['name'] }}"
@@ -181,7 +177,7 @@
 - name: Force all notified handlers to run at this point, not waiting for normal sync points
   meta: flush_handlers
 
-- name: "traefik-setup | setting systemd read of envrionment variable"
+- name: "setting systemd read of envrionment variable"
   ansible.builtin.blockinfile:
     path: "/etc/systemd/system/{{ traefik_proxy['service_unit']['name'] }}.d/10-environment.conf"
     block: |
@@ -202,7 +198,7 @@
 - name: Force all notified handlers to run at this point, not waiting for normal sync points
   meta: flush_handlers
 
-- name: "traefik-setup | ensure services are enabled and started"
+- name: "ensure services are enabled and started"
   ansible.builtin.systemd:
     name: "{{ item.name }}"
     state: started
