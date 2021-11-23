@@ -59,8 +59,8 @@ output "vault_hosts" {
 
 output "ssh_key" {
   value = {
-    prv = tls_private_key.ssh.private_key_pem
-    pub = tls_private_key.ssh.public_key_openssh
+    prv = tls_private_key.ssh_key.private_key_pem
+    pub = tls_private_key.ssh_key.public_key_openssh
   }
   sensitive = true
 }
