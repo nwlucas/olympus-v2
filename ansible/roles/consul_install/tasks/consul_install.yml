@@ -1,0 +1,104 @@
+---
+- name: preparing for consul upgrade
+  block:
+    - name: get service status
+      ansible.builtin.service_facts:
+      register: services_state
+
+    - name: testing variable consul_version to be installed
+      ansible.builtin.debug:
+        var: services_state.ansible_facts.services
+      when: consul_install_debug
+
+    - name: stop consul service
+      ansible.builtin.systemd:
+        name: consul.service
+        state: stop
+      when:
+        - "'consul' in services_state.ansible_facts.services"
+        - services_state.ansible_facts.services["consul.service"].state == "running"
+  when:
+    - consul_systemd.stat.exists
+    - consul_binary.stat.exists
+  tags:
+    - consul-install
+
+- name: remove current binary if it exists
+  ansible.builtin.file:
+    path: "{{ hashi_binary_dir }}/consul"
+    state: absent
+  when: consul_binary.stat.exists
+  tags:
+    - consul-install
+
+- name: set consul archive filename
+  ansible.builtin.set_fact:
+    _consul_archive: |
+      "consul_{{ consul_version }}_{{ ansible_facts['system']|lower }}_{% if ansible_facts['architecture'] == 'aarch64' %}arm64{% else %}amd64{% endif %}.zip"
+
+- name: download binary archive
+  ansible.builtin.get_url:
+    url: |
+      "{{ consul_archive_url }}/{{ _consul_archive }}.zip"
+    dest: /tmp/consul-v{{ consul_version }}.zip
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: 0755
+    checksum: "sha256:{{ consul_archive_url }}/consul_{{ consul_version }}_SHA256SUMS"
+  tags:
+    - consul-install
+
+- name: test for archive
+  ansible.builtin.stat:
+    path: /tmp/consul-v{{ consul_version }}.zip
+  register: consul_archive_dl
+  tags:
+    - consul-install
+
+- name: testing variable consul_archive_dl
+  ansible.builtin.debug:
+    var: consul_archive_dl
+  when: consul_install_debug
+  tags:
+    - consul-install
+
+- name: unpack archive
+  ansible.builtin.unarchive:
+    remote_src: true
+    src: /tmp/consul-v{{ consul_version }}.zip
+    dest: "{{ hashi_binary_dir }}"
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: "0755"
+  tags:
+    - consul-install
+
+- name: remove downloaded archive if it still exists
+  ansible.builtin.file:
+    path: /tmp/consul-v{{ consul_version }}.zip
+    state: absent
+  when: consul_archive_dl.stat.exists
+  tags:
+    - consul-install
+
+- name: set binary capabilities
+  community.general.capabilities:
+    path: "{{ hashi_binary_dir }}/consul"
+    capability: "cap_ipc_lock=ep"
+    state: present
+  tags:
+    - consul-install
+
+- name: create symbolic link for consul
+  ansible.builtin.file:
+    src: "{{ hashi_binary_dir }}/consul"
+    dest: "/usr/local/bin/consul"
+    state: link
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: 0755
+  when:
+    - hashi_binary_dir != "/usr/local/bin"
+    - not consul_binary_link.stat.exists
+  tags:
+    - consul-install
