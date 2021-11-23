@@ -1,2 +1,6 @@
 ---
 # vars file for certbot_install
+
+_deploy_renewal_hooks: "{{ deploy_renewal_hooks | default([]) }}"
+_pre_renewal_hooks: "{{ pre_renewal_hooks | default([]) }}"
+_post_renewal_hooks: "{{ post_renewal_hooks | default([]) }}"

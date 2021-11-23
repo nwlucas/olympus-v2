@@ -3,22 +3,38 @@
 
 - name: Include check/asserts
   ansible.builtin.import_tasks: ./vault_asserts.yml
+  tags:
+    - vault-config
+    - vault-certs
+    - vault-install
 
 - name: test for binary
   ansible.builtin.stat:
     path: "{{ hashi_binary_dir }}/vault"
   register: vault_binary
+  tags:
+    - vault-config
+    - vault-certs
+    - vault-install
 
 - name: test for symlink to binary
   ansible.builtin.stat:
     path: "/usr/local/bin/vault"
   register: vault_binary_link
   when: hashi_binary_dir != "/usr/local/bin"
+  tags:
+    - vault-config
+    - vault-certs
+    - vault-install
 
 - name: test for systemd service unit
   ansible.builtin.stat:
     path: "/etc/systemd/system/vault.service"
   register: vault_systemd
+  tags:
+    - vault-config
+    - vault-certs
+    - vault-install
 
 - name: register binary version
   ansible.builtin.command:
@@ -26,11 +42,19 @@
   register: vault_binary_version
   changed_when: false
   when: vault_binary.stat.exists
+  tags:
+    - vault-config
+    - vault-certs
+    - vault-install
 
 - name: set the discovered binary version
   ansible.builtin.set_fact:
     _discovered_binary_version: "{{ vault_binary_version.stdout.split(' ')[1][1:] }}"
   when: vault_binary.stat.exists
+  tags:
+    - vault-config
+    - vault-certs
+    - vault-install
 
 - name: determine if to install or upgrade vault binary
   ansible.builtin.set_fact:
@@ -38,30 +62,104 @@
   when: (not vault_binary.stat.exists)
     or (vault_binary.stat.exists and _discovered_binary_version is version(vault_version,operator='lt',version_type='semver'))
     or vault_install_override
+  tags:
+    - vault-config
+    - vault-certs
+    - vault-install
 
 - name: testing variable vault_binary_version
   ansible.builtin.debug:
     var: _install_vault
   when: vault_install_debug
+  tags:
+    - vault-config
+    - vault-certs
+    - vault-install
 
 - name: testing variable vault_version to be installed
   ansible.builtin.debug:
     var: vault_version
   when: vault_install_debug and _install_vault
+  tags:
+    - vault-config
+    - vault-certs
+    - vault-install
 
 - name: testing variable vault_archive_url to get vault binary from
   ansible.builtin.debug:
     var: vault_archive_url
   when: vault_install_debug and _install_vault
+  tags:
+    - vault-config
+    - vault-certs
+    - vault-install
+
+- name: create vault group
+  ansible.builtin.group:
+    name: "{{ vault_group }}"
+  tags:
+    - vault-config
+    - vault-certs
+    - vault-install
+
+- name: create vault user
+  ansible.builtin.user:
+    name: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    system: true
+    shell: "/sbin/nologin"
+    comment: "vault nologin user"
+    home: "{{ vault_config_path | dirname }}"
+    state: present
+  tags:
+    - vault-config
+    - vault-certs
+    - vault-install
+
+- name: install prerequisites
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    update_cache: true
+    autoremove: true
+    autoclean: true
+  loop:
+    - "{{ vault_install_dependencies }}"
+  tags:
+    - vault-config
+    - vault-certs
+    - vault-install
+
+- name: create vault dirs
+  ansible.builtin.file:
+    path: "{{ item.dir }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: 0755
+    state: directory
+  loop: "{{ vault_dirs }}"
+  tags:
+    - vault-config
+    - vault-certs
+    - vault-install
 
 - name: install vault
-  ansible.builtin.include_tasks: ./vault_install.yml
+  ansible.builtin.include_tasks:
+    file: vault_install.yml
   when: _install_vault
+  tags:
+    - vault-install
 
 - name: install vault certs
-  ansible.builtin.include_tasks: ./vault_certs.yml
-  when: (_vault_certs is defined and _vault_certs.keys()|length > 0)
+  ansible.builtin.include_tasks:
+    file: vault_certs.yml
+  when: (_vault_certs is defined and
+    ( _vault_certs|selectattr('cluster','defined')|list|length > 0 or _vault_certs|selectattr('client','defined')|list|length > 0 ))
     or (_vault_ca is defined and _vault_ca.keys()|length > 0)
+  tags:
+    - vault-certs
 
 - name: configure vault
-  ansible.builtin.include_tasks: ./vault_config.yml
+  ansible.builtin.include_tasks:
+    file: vault_config.yml
+  tags:
+    - vault-config

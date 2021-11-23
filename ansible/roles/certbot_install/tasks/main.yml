@@ -15,10 +15,6 @@
   register: certbot_output
   changed_when: false
 
-- name: install certbot cloudflare plugin
-  community.general.snap:
-    name: certbot-dns-cloudflare
-
 - name: create symbolic link for certbot
   ansible.builtin.file:
     src: "/snap/bin/certbot"
@@ -36,13 +32,50 @@
     mode: "0644"
     state: directory
 
-- name: place configuration file
+- name: configure deploy_renewal_hooks
   ansible.builtin.template:
-    src: "certbot_dns.j2"
-    dest: "{{ certbot_ini_dir }}/cf-creds.ini"
-    mode: 0600
+    src: "{{ playbook_dir }}/templates/certbot/{{ item }}.j2"
+    dest: "/etc/letsencrypt/renewal-hooks/deploy/{{ item }}.sh"
+    owner: "root"
+    group: "root"
+    mode: "750"
+  loop: "{{ _deploy_renewal_hooks }}"
+  when: _deploy_renewal_hooks|length > 0
 
-- name: request and register cert
-  ansible.builtin.command:
-    cmd: /usr/bin/certbot certonly --dns-cloudflare --dns-cloudflare-credentials {{ certbot_ini_dir }}/cf-creds.ini -d {{ inventory_hostname }}
-    creates: /etc/letsencrypt/live/{{ inventory_hostname }}/fullchain.pem
+- name: configure pre_renewal_hooks
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/templates/certbot/{{ item }}.j2"
+    dest: "/etc/letsencrypt/renewal-hooks/pre/{{ item }}.sh"
+    owner: "root"
+    group: "root"
+    mode: "750"
+  loop: "{{ _pre_renewal_hooks }}"
+  when: _pre_renewal_hooks|length > 0
+
+- name: configure post_renewal_hooks
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/templates/certbot/{{ item }}.j2"
+    dest: "/etc/letsencrypt/renewal-hooks/post/{{ item }}.sh"
+    owner: "root"
+    group: "root"
+    mode: "750"
+  loop: "{{ _post_renewal_hooks }}"
+  when: _post_renewal_hooks|length > 0
+
+- name: use cloudflare dns plugin
+  block:
+    - name: install certbot cloudflare plugin
+      community.general.snap:
+        name: certbot-dns-cloudflare
+
+    - name: place cloudflare dns credentials file
+      ansible.builtin.template:
+        src: "certbot_dns.j2"
+        dest: "{{ certbot_ini_dir }}/cf-creds.ini"
+        mode: 0600
+
+    - name: request and register cert
+      ansible.builtin.command:
+        cmd: /usr/bin/certbot certonly --dns-cloudflare --dns-cloudflare-credentials {{ certbot_ini_dir }}/cf-creds.ini -d {{ inventory_hostname }}
+        creates: /etc/letsencrypt/live/{{ inventory_hostname }}/fullchain.pem
+  when: dns_plugin == "cloudflare"

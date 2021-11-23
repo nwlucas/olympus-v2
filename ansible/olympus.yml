@@ -140,28 +140,34 @@
     - role: vault_install
       when: "'vault_servers' in group_names"
       vars:
-        vault_certs: "{{ _olympus_v2['vault_hosts'] }}"
-        vault_ca: "{{ _olympus_v2['hashi_cas']['vault_ca'] }}"
+        vault_certs: "{{ _olympus_v2['vault_hosts'][inventory_hostname] }}"
+        vault_ca: "{{ _olympus_v2['hashi_ca'] }}"
       tags:
         - vault-install
+        - vault-certs
+        - vault-config
         - hashi-stack
 
     - role: consul_install
       when: "'consul_servers' in group_names"
       vars:
-        consul_certs: "{{ _olympus_v2['consul_hosts'] }}"
-        consul_ca: "{{ _olympus_v2['hashi_cas']['consul_ca'] }}"
+        consul_certs: "{{ _olympus_v2['consul_hosts'][inventory_hostname] }}"
+        consul_ca: "{{ _olympus_v2['hashi_ca'] }}"
       tags:
         - consul-install
+        - consul-certs
+        - consul-config
         - hashi-stack
 
     - role: nomad_install
       when: "'nomad_servers' in group_names"
       vars:
-        nomad_certs: "{{ _olympus_v2['nomad_hosts'] }}"
-        nomad_ca: "{{ _olympus_v2['hashi_cas']['nomad_ca'] }}"
+        nomad_certs: "{{ _olympus_v2['nomad_hosts'][inventory_hostname] }}"
+        nomad_ca: "{{ _olympus_v2['hashi_ca'] }}"
       tags:
         - nomad-install
+        - nomad-certs
+        - nomad-config
         - hashi-stack
 
     - role: vault_init
