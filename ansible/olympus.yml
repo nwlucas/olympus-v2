@@ -78,6 +78,16 @@
       tags:
         - terraform_backend_info
 
+    - name:
+      ansible.posix.authorized_key:
+        user: "{{ item }}"
+        state: present
+        key: "{{ _olympus_v2['ssh_key']['pub'] }}"
+      loop:
+        - "ubuntu"
+      tags:
+        - ssh-keys
+
     - name: set correct timezone
       community.general.timezone:
         name: America/New_York
