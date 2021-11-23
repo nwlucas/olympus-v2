@@ -56,3 +56,23 @@ output "vault_hosts" {
   }
   sensitive = true
 }
+
+output "ssh_key" {
+  value = {
+    prv = tls_private_key.ssh.private_key_pem
+    pub = tls_private_key.ssh.public_key_openssh
+  }
+  sensitive = true
+}
+
+output "consul_secret" {
+  value = random_id.consul_secret.b64_std
+}
+
+output "nomad_secret" {
+  value = random_id.nomad_secret.b64_std
+}
+
+output "dns_a_records" {
+  value = data.dns_a_record_set.hosts
+}
