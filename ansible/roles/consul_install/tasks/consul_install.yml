@@ -34,13 +34,13 @@
 - name: set consul archive filename
   ansible.builtin.set_fact:
     _consul_archive: |
-      "consul_{{ consul_version }}_{{ ansible_facts['system']|lower }}_{% if ansible_facts['architecture'] == 'aarch64' %}arm64{% else %}amd64{% endif %}.zip"
+      consul_{{ consul_version }}_{{ ansible_facts['system']|lower }}_{% if ansible_facts['architecture'] == 'aarch64' %}arm64{% else %}amd64{% endif %}.zip
 
 - name: download binary archive
   ansible.builtin.get_url:
     url: |
-      "{{ consul_archive_url }}/{{ _consul_archive }}.zip"
-    dest: /tmp/consul-v{{ consul_version }}.zip
+      {{ consul_archive_url }}/{{ _consul_archive }}
+    dest: /tmp/{{ _consul_archive }}
     owner: "{{ consul_user }}"
     group: "{{ consul_group }}"
     mode: 0755
@@ -50,7 +50,7 @@
 
 - name: test for archive
   ansible.builtin.stat:
-    path: /tmp/consul-v{{ consul_version }}.zip
+    path: /tmp/{{ _consul_archive }}
   register: consul_archive_dl
   tags:
     - consul-install
@@ -65,7 +65,7 @@
 - name: unpack archive
   ansible.builtin.unarchive:
     remote_src: true
-    src: /tmp/consul-v{{ consul_version }}.zip
+    src: /tmp/{{ _consul_archive }}
     dest: "{{ hashi_binary_dir }}"
     owner: "{{ consul_user }}"
     group: "{{ consul_group }}"
@@ -75,7 +75,7 @@
 
 - name: remove downloaded archive if it still exists
   ansible.builtin.file:
-    path: /tmp/consul-v{{ consul_version }}.zip
+    path: /tmp/{{ _consul_archive }}
     state: absent
   when: consul_archive_dl.stat.exists
   tags:

@@ -139,3 +139,134 @@ hashi_hosts = {
 }
 
 organization_name = "NWLNEXUS LLC"
+
+nc_project = {
+  "name"        = "homelab-nc-cluster"
+  "description" = "Nomad Consul cluster project."
+  "purpose"     = "Service or API"
+  "environment" = "Production"
+}
+
+bastion_node = {
+  "prefix" = "bst"
+  "spec"   = "generic"
+}
+
+nc_node = {
+  "prefix" = "nc"
+  "spec"   = "generic"
+}
+
+nc_fw_rules_inbound = [
+  {
+    protocol         = "tcp"
+    port_range       = "8600"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol         = "udp"
+    port_range       = "8600"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol         = "tcp"
+    port_range       = "8500"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol         = "tcp"
+    port_range       = "8501"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol         = "tcp"
+    port_range       = "8502"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol         = "tcp"
+    port_range       = "8300"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol         = "tcp"
+    port_range       = "8301"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol         = "udp"
+    port_range       = "8301"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol         = "tcp"
+    port_range       = "8302"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol         = "udp"
+    port_range       = "8302"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  },
+]
+
+nc_fw_rules_outbound = [
+  {
+    protocol              = "tcp"
+    port_range            = "80"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol              = "tcp"
+    port_range            = "443"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol              = "udp"
+    port_range            = "53"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol              = "icmp"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  },
+]
+
+bastion_fw_inbound = [
+  {
+    protocol         = "tcp"
+    port_range       = "22"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol         = "tcp"
+    port_range       = "9090"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol         = "icmp"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  },
+]
+
+bastion_fw_outbound = [
+  {
+    protocol              = "tcp"
+    port_range            = "80"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol              = "tcp"
+    port_range            = "443"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol              = "udp"
+    port_range            = "53"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  },
+  {
+    protocol              = "icmp"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  },
+]

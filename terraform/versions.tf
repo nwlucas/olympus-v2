@@ -29,5 +29,13 @@ terraform {
       source  = "hashicorp/tls"
       version = "3.1.0"
     }
+    cloudinit = {
+      source  = "hashicorp/cloudinit"
+      version = "~> 2.2.0"
+    }
+    digitalocean = {
+      source  = "digitalocean/digitalocean"
+      version = "~> 2.16.0"
+    }
   }
 }

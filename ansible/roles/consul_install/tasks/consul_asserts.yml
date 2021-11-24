@@ -57,3 +57,10 @@
     - consul_listener_interface is defined
     - consul_listener_interface != "default" or consul_listener_interface != "all"
     - consul_listener_interface not in ansible_facts['interfaces']
+
+- name: check for encrypt token
+  ansible.builtin.fail:
+    msg: "Consul encrypt token is not set or is empty"
+  when: consul_encrypt_token is not defined
+    or consul_encrypt_token|length == 0
+    or consul_encrypt_token|length < 32

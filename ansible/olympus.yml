@@ -78,7 +78,7 @@
       tags:
         - terraform_backend_info
 
-    - name:
+    - name: add authorized keys
       ansible.posix.authorized_key:
         user: "{{ item }}"
         state: present
@@ -163,6 +163,7 @@
       vars:
         consul_certs: "{{ _olympus_v2['consul_hosts'][inventory_hostname] }}"
         consul_ca: "{{ _olympus_v2['hashi_ca'] }}"
+        consul_encrypt_token: "{{ _olympus_v2['consul_secret'] }}"
       tags:
         - consul-install
         - consul-certs

@@ -1,4 +1,4 @@
-consul_install_debug: true
+consul_install_debug: false
 consul_install_override: false
 consul_version: 1.10.4
 use_certbot_cert: true
@@ -6,4 +6,6 @@ use_certbot_cert: true
 # to show the possible customization and testing. Defining an invalid interface will cause
 # the play to fail.
 consul_listener_interface: "eth0"
-consul_listener_port: 8200
+
+
+consul_datacenter: "olympus"

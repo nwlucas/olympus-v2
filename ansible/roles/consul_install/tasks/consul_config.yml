@@ -1,0 +1,24 @@
+- name: create systemd unit
+  ansible.builtin.template:
+    src: consul-systemd.j2
+    dest: /etc/systemd/system/consul.service
+    owner: root
+    group: root
+    mode: 0644
+  notify: systemd_reload
+  tags:
+    - consul-config
+
+- name: place consul configuration
+  ansible.builtin.template:
+    src: consul-config.j2
+    dest: "{{ consul_config_path }}"
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: 0640
+  notify: restart consul services
+  tags:
+    - consul-config
+
+- name: Force all notified handlers to run at this point, not waiting for normal sync points
+  meta: flush_handlers

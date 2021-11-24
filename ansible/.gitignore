@@ -30,5 +30,5 @@ ansible/collections/
 **/.vault_pass
 .facts/
 facts/
-**/.vault_init
+**/.vault_init/
 backend_info/

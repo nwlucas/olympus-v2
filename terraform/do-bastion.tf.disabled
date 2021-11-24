@@ -1,0 +1,162 @@
+locals {
+  bastion_node = defaults(var.bastion_node, {
+    prefix = "bastion"
+    spec   = "generic"
+  })
+
+  bastion_fqdn = format("%s-%s.%s", lower(local.bastion_node["prefix"]), lower(local.droplet_specs["generic"].region), lower(local.droplet_specs["generic"].dns_zone))
+}
+
+data "cloudinit_config" "bastion" {
+  gzip          = false
+  base64_encode = false
+  part {
+    content_type = "text/cloud-config"
+    merge_type   = "list(append)+dict(no_replace,recurse_list)+str()"
+    filename     = "base.yaml"
+    content = templatefile(
+      "${path.module}/../templates/cloud-init/base-config-cloud.tpl", {
+        instance_fqdn    = local.bastion_fqdn
+        instance_domain  = lower(local.droplet_specs["generic"].dns_zone)
+        ssh_password     = var.SSH_PASSWORD
+        ssh_instance_key = tls_private_key.ssh_key.public_key_openssh
+      }
+    )
+  }
+  part {
+    content_type = "text/cloud-config"
+    merge_type   = "list(append)+dict(no_replace,recurse_list)+str()"
+    filename     = "certbot.yaml"
+    content = templatefile(
+      "${path.module}/../templates/cloud-init/certbot.tpl", {
+        instance_fqdn = local.bastion_fqdn
+        cf_token      = var.CF_API_TOKEN
+        le_email      = var.ACME_EMAIL
+      }
+    )
+  }
+  part {
+    content_type = "text/cloud-config"
+    merge_type   = "list(append)+dict(no_replace,recurse_list)+str()"
+    filename     = "ssh_key.yaml"
+    content      = <<-EOT
+    #cloud-config
+    merge_how:
+    - name: list
+      settings: [append]
+    - name: dict
+      settings: [no_replace, recurse_list]
+    write_files:
+    - content: |
+        ${indent(4, tls_private_key.ssh_key.public_key_openssh)}
+      path: /home/ubuntu/.ssh/ssh_instance
+      owner: root:root
+      permissions: '0400'
+    - content: |
+        ${indent(4, tls_private_key.ssh_key.public_key_openssh)}
+      path: /root/.ssh/ssh_instance
+      owner: root:root
+      permissions: '0400'
+    runcmd:
+    - chown -R ubuntu:ubuntu /home/ubuntu
+    EOT
+  }
+  part {
+    content_type = "text/cloud-config"
+    merge_type   = "list(append)+dict(no_replace,recurse_list)+str()"
+    filename     = "provisioning.yaml"
+    content      = <<-EOT
+    #cloud-config
+    merge_how:
+    - name: list
+      settings: [append]
+    - name: dict
+      settings: [no_replace, recurse_list]
+    write_files:
+    - content: |
+        export NODE_NAME="${local.bastion_fqdn}"
+        export NODE_TYPE="BASTION"
+        export DO_API_TOKEN="${var.DIGITALOCEAN_API_TOKEN}"
+
+      path: /etc/profile.d/provisioning.sh
+      owner: root:root
+      permissions: '0755'
+    EOT
+  }
+  part {
+    content_type = "text/cloud-config"
+    merge_type   = "list(append)+dict(no_replace,recurse_list)+str()"
+    filename     = "final.yaml"
+    content = templatefile(
+      "${path.module}/../templates/cloud-init/final-config-cloud.tpl", {
+      }
+    )
+  }
+}
+
+resource "digitalocean_droplet" "bastion" {
+  image     = local.droplet_specs["generic"].image
+  name      = local.bastion_fqdn
+  region    = local.droplet_specs["generic"].region
+  size      = local.droplet_specs["generic"].size
+  ssh_keys  = [digitalocean_ssh_key.tf_ssh.fingerprint]
+  user_data = data.cloudinit_config.bastion.rendered
+  vpc_uuid  = digitalocean_vpc.nc_internal.id
+  tags = [
+    "bastion",
+    lower(local.droplet_specs["generic"].region),
+  ]
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "digitalocean_firewall" "bastion" {
+  name = "fw-bastion"
+
+  tags = ["bastion"]
+
+  #--------------------------------------------------------------------------#
+  # Rules to allow only ssh both inbound from the public internet and only   #
+  # allow outbout ssh traffic into the VPC network. Also allow ping just for #
+  # ease of use inside the VPC as well.                                      #
+  #--------------------------------------------------------------------------#
+  outbound_rule {
+    protocol              = "tcp"
+    port_range            = "22"
+    destination_addresses = [digitalocean_vpc.nc_internal.ip_range]
+  }
+
+  outbound_rule {
+    protocol              = "icmp"
+    destination_addresses = [digitalocean_vpc.nc_internal.ip_range]
+  }
+
+  dynamic "inbound_rule" {
+    for_each = var.bastion_fw_inbound
+    content {
+      protocol         = inbound_rule.value["protocol"]
+      port_range       = inbound_rule.value["port_range"]
+      source_addresses = inbound_rule.value["source_addresses"]
+    }
+  }
+  dynamic "outbound_rule" {
+    for_each = var.bastion_fw_outbound
+    content {
+      protocol              = outbound_rule.value["protocol"]
+      port_range            = outbound_rule.value["port_range"]
+      destination_addresses = outbound_rule.value["destination_addresses"]
+    }
+  }
+}
+
+module "cf_bastion" {
+  source = "git::https://gitlab.com/olympus-net/terraform_modules/cloudflare.git"
+
+  zone        = lower(local.droplet_specs["generic"].dns_zone)
+  record_type = "A"
+  record = {
+    "name"    = format("%s-%s", lower(local.bastion_node["prefix"]), local.droplet_specs["generic"].region)
+    "content" = digitalocean_droplet.bastion.ipv4_address
+  }
+}

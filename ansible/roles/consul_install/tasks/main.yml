@@ -103,6 +103,55 @@
     - consul-config
     - consul-certs
 
+- name: create consul group
+  ansible.builtin.group:
+    name: "{{ consul_group }}"
+  tags:
+    - consul-config
+    - consul-certs
+    - consul-install
+
+- name: create consul user
+  ansible.builtin.user:
+    name: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    system: true
+    shell: "/sbin/nologin"
+    comment: "consul nologin user"
+    home: "{{ consul_config_path | dirname }}"
+    state: present
+  tags:
+    - consul-config
+    - consul-certs
+    - consul-install
+
+- name: install prerequisites
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    update_cache: true
+    autoremove: true
+    autoclean: true
+  when: consul_install_dependencies is defined
+  loop:
+    - "{{ consul_install_dependencies }}"
+  tags:
+    - consul-config
+    - consul-certs
+    - consul-install
+
+- name: create consul dirs
+  ansible.builtin.file:
+    path: "{{ item.dir }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: 0755
+    state: directory
+  loop: "{{ consul_dirs }}"
+  tags:
+    - consul-config
+    - consul-certs
+    - consul-install
+
 - name: install consul
   ansible.builtin.include_tasks:
     file: consul_install.yml
@@ -111,10 +160,17 @@
     - consul-install
     - consul-config
     - consul-certs
-# - name: install consul certs
-#   ansible.builtin.include_tasks: ./consul_certs.yml
-#   when: (_consul_certs is defined and _consul_certs.keys()|length > 0)
-#     or (_consul_ca is defined and _consul_ca.keys()|length > 0)
 
-# - name: configure consul
-#   ansible.builtin.include_tasks: ./consul_config.yml
+- name: install consul certs
+  ansible.builtin.include_tasks: ./consul_certs.yml
+  when: (_consul_certs is defined and _consul_certs.keys()|length > 0)
+    or (_consul_ca is defined and _consul_ca.keys()|length > 0)
+  tags:
+    - consul-install
+    - consul-certs
+
+- name: configure consul
+  ansible.builtin.include_tasks: ./consul_config.yml
+  tags:
+    - consul-install
+    - consul-config

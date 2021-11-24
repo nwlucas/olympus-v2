@@ -1,2 +1,17 @@
 ---
 # handlers file for consul-install
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen:
+    - reload_systemd
+    - systemd_reload
+
+- name: restart consul
+  ansible.builtin.systemd:
+    name: consul.service
+    state: restarted
+  listen:
+    - restart_consul
+    - consul_restart
+    - "restart consul services"

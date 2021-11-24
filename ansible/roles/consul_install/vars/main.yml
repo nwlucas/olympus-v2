@@ -1,5 +1,5 @@
 ---
 # vars file for consul_install
 
-_consul_certs: "{{ _def_consul_certs | combine(consul_certs[inventory_hostname]) }}"
-_consul_ca: "{{ _def_consul_ca | combine(consul_ca) }}"
+_consul_certs: "{{ {} | combine(consul_certs) }}"
+_consul_ca: "{{ {} | combine(consul_ca) }}"

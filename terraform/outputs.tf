@@ -76,3 +76,23 @@ output "nomad_secret" {
 output "dns_a_records" {
   value = data.dns_a_record_set.hosts
 }
+
+output "cloudflare_ips" {
+  value = flatten(data.cloudflare_ip_ranges.cloudflare.cidr_blocks)
+}
+
+output "nodes" {
+  value = digitalocean_droplet.nc_nodes[*].urn
+}
+
+output "vpc" {
+  value = digitalocean_vpc.nc_internal.id
+}
+
+output "project_homelab" {
+  value = digitalocean_project.homelab_nc_cluster.id
+}
+
+output "available_regions" {
+  value = data.digitalocean_regions.available.regions[*].slug
+}

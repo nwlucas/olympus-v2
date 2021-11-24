@@ -1,0 +1,43 @@
+locals {
+  droplet_specs = defaults(var.droplet_specs, {
+  image  = "ubuntu-20-04-x64"
+  region = "nyc3"
+  size   = "s-1vcpu-1gb"
+  })
+}
+
+data "cloudflare_ip_ranges" "cloudflare" {}
+
+data "digitalocean_regions" "available" {
+  filter {
+    key    = "available"
+    values = ["true"]
+  }
+  filter {
+    key    = "features"
+    values = ["backups", "metadata", "ipv6"]
+  }
+  sort {
+    key       = "name"
+    direction = "desc"
+  }
+}
+
+resource "digitalocean_ssh_key" "tf_ssh" {
+  name       = "TF SSH"
+  public_key = tls_private_key.ssh_key.public_key_openssh
+}
+
+resource "digitalocean_vpc" "nc_internal" {
+  name     = "nomad-consul-network"
+  region   = local.droplet_specs["generic"].region
+  ip_range = "10.10.10.0/24"
+}
+
+resource "digitalocean_project" "homelab_nc_cluster" {
+  name        = var.nc_project["name"]
+  description = var.nc_project["description"]
+  purpose     = var.nc_project["purpose"]
+  environment = var.nc_project["environment"]
+  resources   = flatten([digitalocean_droplet.nc_nodes[*].urn])
+}

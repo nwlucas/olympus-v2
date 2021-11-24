@@ -12,6 +12,18 @@
 			"name": "Packer",
 			"path": "packer"
 		},
+    {
+      "name": "Shared Templates",
+      "path": "templates"
+    },
+    {
+      "name": "SSH",
+      "path": "ssh_keys"
+    },
+    {
+      "name": "VSCODE",
+      "path": "./.vscode"
+    },
 	],
 	"settings": {
 		"workspace-terminals.switchTerminal": "always",

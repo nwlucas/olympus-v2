@@ -1,0 +1,123 @@
+- name: show _consul_certs
+  ansible.builtin.debug:
+    var: _consul_certs
+  when: consul_install_debug
+  tags:
+    - consul-certs
+
+- name: is there a cluster key in _consul_certs?
+  ansible.builtin.debug:
+    var: _consul_certs.cluster is defined
+  when: consul_install_debug
+  tags:
+    - consul-certs
+
+- name: is there a cluster key in _consul_certs?
+  ansible.builtin.debug:
+    var: _consul_certs['cluster'] is defined
+  when: consul_install_debug
+  tags:
+    - consul-certs
+
+- name: is there a client key in _consul_certs?
+  ansible.builtin.debug:
+    var: _consul_certs.client is defined
+  when: consul_install_debug
+  tags:
+    - consul-certs
+
+- name: is there a client key in _consul_certs?
+  ansible.builtin.debug:
+    var: _consul_certs['client'] is defined
+  when: consul_install_debug
+  tags:
+    - consul-certs
+
+- name: show _consul_ca
+  ansible.builtin.debug:
+    var: _consul_ca
+  when: consul_install_debug
+  tags:
+    - consul-certs
+
+- name: show install_certbot
+  ansible.builtin.debug:
+    var: install_certbot
+  when: consul_install_debug
+  tags:
+    - consul-certs
+
+- name: show use_certbot_cert
+  ansible.builtin.debug:
+    var: use_certbot_cert
+  when: consul_install_debug
+  tags:
+    - consul-certs
+
+- name: copy certbot certs
+  ansible.builtin.copy:
+    remote_src: true
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: 0400
+  loop:
+    - src: "/etc/letsencrypt/live/{{ inventory_hostname }}/fullchain.pem"
+      dest: "{{ consul_config_path | dirname }}/certs/client/chain.pem"
+    - src: "/etc/letsencrypt/live/{{ inventory_hostname }}/privkey.pem"
+      dest: "{{ consul_config_path | dirname }}/certs/client/privkey.pem"
+  when: use_certbot_cert and install_certbot
+  notify: "restart consul services"
+  tags:
+    - consul-certs
+
+- name: show use_certbot_cert
+  ansible.builtin.debug:
+    var: _consul_certs['cluster'] | dict2items
+  when: consul_install_debug
+  loop:
+    - "{{ _consul_certs['cluster'] }}"
+  tags:
+    - consul-certs
+
+- name: write out consul node cluster cert and key
+  ansible.builtin.copy:
+    content: "{{ item.value.cert }}"
+    dest: "{{ consul_config_path | dirname }}/certs/cluster/{{ item.value.filename }}"
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: 0400
+  loop: "{{ _consul_certs['cluster'] | dict2items }}"
+  when: _consul_certs.cluster is defined and _consul_certs['cluster'].keys()|length > 0
+  notify: "restart consul services"
+  tags:
+    - consul-certs
+
+- name: write out consul node client cert and key
+  ansible.builtin.copy:
+    content: "{{ item.value.cert }}"
+    dest: "{{ consul_config_path | dirname }}/certs/client/{{ item.value.filename }}"
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: 0400
+  loop: "{{ _consul_certs['client'] | dict2items }}"
+  when: _consul_certs.client is defined and _consul_certs['client'].keys()|length > 0
+  notify: "restart consul services"
+  tags:
+    - consul-certs
+
+- name: write out consul ca
+  ansible.builtin.copy:
+    content: "{{ _consul_ca['pub'] }}"
+    dest: "{{ consul_config_path | dirname }}/certs/consul_ca.pem"
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: 0400
+  when: _consul_ca.keys()|length > 0
+  notify: "restart consul services"
+  tags:
+    - consul-certs
+
+- name: Force all notified handlers to run at this point, not waiting for normal sync points
+  meta: flush_handlers
