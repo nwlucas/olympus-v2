@@ -6,6 +6,3 @@ use_certbot_cert: true
 # to show the possible customization and testing. Defining an invalid interface will cause
 # the play to fail.
 consul_listener_interface: "eth0"
-
-
-consul_datacenter: "olympus"

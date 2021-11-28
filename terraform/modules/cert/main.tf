@@ -76,6 +76,12 @@ variable "allowed_uses" {
   ]
 }
 
+variable "is_ca_certificate" {
+  type = bool
+
+  default = false
+}
+
 variable "ca_cert_pem" {
   description = "Cert PEM of CA"
 }
@@ -136,6 +142,7 @@ resource "tls_locally_signed_cert" "cert" {
   ca_key_algorithm   = var.ca_key_algorithm
   ca_private_key_pem = var.ca_private_key_pem
   ca_cert_pem        = var.ca_cert_pem
+  is_ca_certificate  = var.is_ca_certificate
 
   validity_period_hours = var.validity_period_hours
   allowed_uses          = var.allowed_uses
@@ -150,14 +157,26 @@ resource "local_file" "cert_public_key" {
 
 resource "aws_s3_bucket_object" "cert_key" {
   bucket  = var.aws_bucket
-  key     = format("%s/cert.key", var.aws_key)
+  key     = format("%s/%s", var.aws_key, var.cert_private_key_path)
   content = tls_private_key.cert.private_key_pem
 }
 
 resource "aws_s3_bucket_object" "cert_pem" {
   bucket  = var.aws_bucket
-  key     = format("%s/cert.pem", var.aws_key)
+  key     = format("%s/%s", var.aws_key, var.cert_public_key_path)
   content = tls_locally_signed_cert.cert.cert_pem
+}
+
+output "cert_algorithm" {
+  value = tls_private_key.cert.algorithm
+}
+
+output "cert_pem" {
+  value = tls_locally_signed_cert.cert.cert_pem
+}
+
+output "cert_key" {
+  value = tls_private_key.cert.private_key_pem
 }
 
 output "cert_private_key" {

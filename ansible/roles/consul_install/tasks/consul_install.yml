@@ -34,7 +34,7 @@
 - name: set consul archive filename
   ansible.builtin.set_fact:
     _consul_archive: |
-      consul_{{ consul_version }}_{{ ansible_facts['system']|lower }}_{% if ansible_facts['architecture'] == 'aarch64' %}arm64{% else %}amd64{% endif %}.zip
+      consul_{{ consul_version }}_{{ ansible_facts['system']|lower }}_{%- if ansible_facts['architecture'] == 'aarch64' %}arm64{%- else %}amd64{%- endif %}.zip
 
 - name: download binary archive
   ansible.builtin.get_url:
@@ -44,7 +44,6 @@
     owner: "{{ consul_user }}"
     group: "{{ consul_group }}"
     mode: 0755
-    checksum: "sha256:{{ consul_archive_url }}/consul_{{ consul_version }}_SHA256SUMS"
   tags:
     - consul-install
 

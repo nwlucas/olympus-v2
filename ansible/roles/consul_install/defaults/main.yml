@@ -45,12 +45,12 @@ consul_domain: "consul."
 consul_log_level: "info"
 consul_alt_domain: ""
 consul_ports:
-  dns: 8500
+  dns: 8600
   http: 8500
   https: 8501
   grpc: 8502
   lan_serf: 8301
   wan_serf: 8302
-  rpc: 8300
+  server: 8300
 
 consul_listener_interface: "default"

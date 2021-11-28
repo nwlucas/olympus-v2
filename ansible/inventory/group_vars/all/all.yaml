@@ -5,3 +5,6 @@ install_ddclient: true
 install_certbot: true
 
 print_terraform_backend: false
+
+consul_datacenter: "olympus"
+nomad_datacenter: "olympus"

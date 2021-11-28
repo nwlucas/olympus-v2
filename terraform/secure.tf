@@ -15,7 +15,7 @@ resource "aws_s3_bucket_object" "ssh_key" {
 }
 
 resource "random_id" "consul_secret" {
-  byte_length = 35
+  byte_length = 32
 }
 
 resource "aws_s3_bucket_object" "consul_secret" {
@@ -25,7 +25,7 @@ resource "aws_s3_bucket_object" "consul_secret" {
 }
 
 resource "random_id" "nomad_secret" {
-  byte_length = 35
+  byte_length = 32
 }
 
 resource "aws_s3_bucket_object" "nomad_secret" {

@@ -168,9 +168,19 @@
   tags:
     - consul-install
     - consul-certs
+    - consul-config
 
 - name: configure consul
   ansible.builtin.include_tasks: ./consul_config.yml
+  tags:
+    - consul-install
+    - consul-config
+
+- name: ensure consul service is enabled
+  ansible.builtin.systemd:
+    name: consul.service
+    enabled: true
+    state: started
   tags:
     - consul-install
     - consul-config

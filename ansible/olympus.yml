@@ -1,16 +1,12 @@
 ---
-- name: host preparation
+- name: fact and backend gathering
   hosts: all
   gather_facts: true
   become: true
   handlers:
     - name: import handlers
       ansible.builtin.import_tasks: ./handlers/main.yml
-  vars:
-    vault_init_debug: false
-    vault_unseal_debug: true
-    terraform_backend_debug: false
-  pre_tasks:
+  tasks:
     - name: Gather facts from ALL hosts (regardless of limit or tags)
       ansible.builtin.setup:
       tags:
@@ -74,10 +70,22 @@
     - name: show terraform outputs
       ansible.builtin.debug:
         var: olympus_v2
-      when: terraform_backend_debug
+      when: terraform_backend_debug is defined and terraform_backend_debug
       tags:
         - terraform_backend_info
 
+- name: host preparation
+  hosts: all
+  gather_facts: true
+  become: true
+  handlers:
+    - name: import handlers
+      ansible.builtin.import_tasks: ./handlers/main.yml
+  vars:
+    vault_init_debug: false
+    vault_unseal_debug: true
+    terraform_backend_debug: false
+  pre_tasks:
     - name: add authorized keys
       ansible.posix.authorized_key:
         user: "{{ item }}"
@@ -159,9 +167,8 @@
         - hashi-stack
 
     - role: consul_install
-      when: "'consul_servers' in group_names"
       vars:
-        consul_certs: "{{ _olympus_v2['consul_hosts'][inventory_hostname] }}"
+        consul_certs: "{{ _olympus_v2['consul_hosts'] }}"
         consul_ca: "{{ _olympus_v2['hashi_ca'] }}"
         consul_encrypt_token: "{{ _olympus_v2['consul_secret'] }}"
       tags:
@@ -173,7 +180,7 @@
     - role: nomad_install
       when: "'nomad_servers' in group_names"
       vars:
-        nomad_certs: "{{ _olympus_v2['nomad_hosts'][inventory_hostname] }}"
+        nomad_certs: "{{ _olympus_v2['nomad_hosts'] }}"
         nomad_ca: "{{ _olympus_v2['hashi_ca'] }}"
       tags:
         - nomad-install
@@ -181,24 +188,25 @@
         - nomad-config
         - hashi-stack
 
+  tags:
+    - host-prep
+
+- name: vault special tasks
+  hosts: vault_servers
+  gather_facts: true
+  become: true
+  handlers:
+    - import_tasks: ./handlers/main.yml
+  roles:
     - role: vault_init
       tags:
         - vault-init
         - never
 
     - role: vault_unseal
-      when: "'vault_servers' in group_names"
       tags:
         - vault-unseal
         - never
   tags:
-    - host-prep
-
-- name: install nomad & consul agents on application servers
-  hosts: app_servers
-  gather_facts: true
-  become: true
-  handlers:
-    - import_tasks: ./handlers/main.yml
-  tags:
-    - app-servers
+    - vault-init
+    - vault-unseal

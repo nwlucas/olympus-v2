@@ -156,10 +156,13 @@
     ( _vault_certs|selectattr('cluster','defined')|list|length > 0 or _vault_certs|selectattr('client','defined')|list|length > 0 ))
     or (_vault_ca is defined and _vault_ca.keys()|length > 0)
   tags:
+    - vault-install
     - vault-certs
+    - vault-config
 
 - name: configure vault
   ansible.builtin.include_tasks:
     file: vault_config.yml
   tags:
+    - vault-install
     - vault-config

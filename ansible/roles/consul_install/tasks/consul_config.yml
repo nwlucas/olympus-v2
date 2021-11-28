@@ -9,14 +9,37 @@
   tags:
     - consul-config
 
-- name: place consul configuration
+- name: place consul env
   ansible.builtin.template:
-    src: consul-config.j2
-    dest: "{{ consul_config_path }}"
+    src: "consul-env.j2"
+    dest: "{{ consul_config_path | dirname }}/consul.env"
     owner: "{{ consul_user }}"
     group: "{{ consul_group }}"
     mode: 0640
   notify: restart consul services
+  tags:
+    - consul-config
+
+- name: place consul common configuration
+  ansible.builtin.template:
+    src: "consul-common.j2"
+    dest: "{{ consul_config_path | dirname }}/consul.hcl"
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: 0640
+  notify: restart consul services
+  tags:
+    - consul-config
+
+- name: place consul server configuration
+  ansible.builtin.template:
+    src: "consul-server.j2"
+    dest: "{{ consul_config_path | dirname }}/server.hcl"
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: 0640
+  notify: restart consul services
+  when: inventory_hostname in groups['consul_servers']
   tags:
     - consul-config
 

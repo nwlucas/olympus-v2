@@ -7,6 +7,12 @@ variable "hashi_hosts" {
   }))
 }
 
+variable "hashi_datacenter" {
+  type = string
+
+  default = "dc1"
+}
+
 variable "lb_hosts" {
   type = map(object({
     domain             = string
@@ -73,12 +79,6 @@ variable "lb_apps" {
   }))
 }
 
-variable "consul_dc" {
-  type = string
-
-  default = "dc1"
-}
-
 variable "organization_name" {
   type = string
 
@@ -104,13 +104,13 @@ variable "DIGITALOCEAN_API_TOKEN" {
   type = string
 }
 
-variable "ANSIBLE_VAULT_PASSWORD_FILE" {
-  type = string
-}
+# variable "ANSIBLE_VAULT_PASSWORD_FILE" {
+#   type = string
+# }
 
-variable "ANSIBLE_VAULT_PWD" {
-  type = string
-}
+# variable "ANSIBLE_VAULT_PWD" {
+#   type = string
+# }
 
 variable "ANSIBLE_VERSION" {
   type = string
@@ -131,16 +131,16 @@ variable "CONSUL_VERSION" {
 }
 
 ## DigitalOcean variables
-variable "droplet_specs" {
-  type = map(object({
-    image    = optional(string)
-    region   = optional(string)
-    size     = optional(string)
-    dns_zone = string
-  }))
+# variable "droplet_specs" {
+#   type = map(object({
+#     image    = optional(string)
+#     region   = optional(string)
+#     size     = optional(string)
+#     dns_zone = string
+#   }))
 
-  description = "Map of Droplet specifications."
-}
+#   description = "Map of Droplet specifications."
+# }
 
 variable "nc_project" {
   type = map(string)

@@ -52,11 +52,11 @@
 
 - name: check for invalid listener interface
   ansible.builtin.fail:
-    msg: "Invalid listener interface. must be one of {{ ansible_facts['interfaces'] }}"
+    msg: "Invalid listener interface. must be one of {{ ansible_facts['interfaces'] }}, but received: {{ consul_listener_interface }}"
   when:
-    - consul_listener_interface is defined
-    - consul_listener_interface != "default" or consul_listener_interface != "all"
-    - consul_listener_interface not in ansible_facts['interfaces']
+    (consul_listener_interface is defined and consul_listener_interface not in ansible_facts['interfaces'])
+    and consul_listener_interface != "default"
+    and consul_listener_interface != "all"
 
 - name: check for encrypt token
   ansible.builtin.fail:

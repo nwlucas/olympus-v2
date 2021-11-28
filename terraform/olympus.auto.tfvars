@@ -128,15 +128,21 @@ lb_hosts = {
 
 hashi_hosts = {
   "rpi-01" = {
-    domain = "nwlnexus.net"
+    domain     = "nwlnexus.net"
+    datacenter = "olympus"
   },
   "rpi-02" = {
-    domain = "nwlnexus.net"
+    domain     = "nwlnexus.net"
+    datacenter = "olympus"
+
   },
   "rpi-03" = {
-    domain = "nwlnexus.net"
+    domain     = "nwlnexus.net"
+    datacenter = "olympus"
+
   }
 }
+hashi_datacenter = "olympus"
 
 organization_name = "NWLNEXUS LLC"
 
