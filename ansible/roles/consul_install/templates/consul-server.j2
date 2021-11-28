@@ -1,7 +1,6 @@
 server                  = true
 bootstrap_expect        = {{ groups['consul_servers']|length }}
 
-retry_join = {{ groups['consul_servers'] | replace('\'', '\"') }}
 {% if consul_enable_ui %}
 ui_config {
   enabled = true
@@ -10,9 +9,9 @@ ui_config {
 
 connect {
   enabled = true
-  ca_provider = consul
+  ca_provider = "consul"
   ca_config {
-    private_key = ""
-    root_cert = ""
+    private_key = "{{ consul_config_path | dirname }}/certs/consul_ca.key"
+    root_cert = "{{ consul_config_path | dirname }}/certs/consul_ca.pem"
   }
 }

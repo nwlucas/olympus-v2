@@ -20,8 +20,10 @@ datacenter    = "{{ consul_datacenter }}"
 data_dir      = "{{ consul_config_path | dirname}}/data"
 domain        = "{{ consul_domain }}"
 
+retry_join = {{ groups['consul_servers'] | replace('\'', '\"') }}
+
 encrypt  = "{{ consul_encrypt_token }}"
-ca_file   = "{{ consul_config_path | dirname }}/certs/consul_ca.pem"
+ca_file   = "{{ consul_config_path | dirname }}/certs/hashi_ca.pem"
 {% if inventory_hostname in groups['consul_servers'] %}
 cert_file = "{{ consul_config_path | dirname }}/certs/cluster/consul_{{ inventory_hostname }}.pem"
 key_file  = "{{ consul_config_path | dirname }}/certs/cluster/consul_{{ inventory_hostname }}.key"

@@ -41,14 +41,15 @@
   tags:
     - consul-certs
 
-- name: show client certs variable converted using dict2items
+- name: show client certs variable
   ansible.builtin.debug:
     var: item
   when:
     - consul_install_debug
     - _consul_certs.client is defined
   loop:
-    - "{{ _consul_certs['client'][consul_datacenter] }}"
+    - "{{ _consul_certs['client'][consul_datacenter]['cert_private_key'] }}"
+    - "{{ _consul_certs['client'][consul_datacenter]['cert_public_key'] }}"
   tags:
     - consul-certs
 
@@ -69,12 +70,14 @@
 
 - name: write out consul node client cert and key
   ansible.builtin.copy:
-    content: "{{ item.value['cert'] }}"
-    dest: "{{ consul_config_path | dirname }}/certs/client/{{ item.value['filename'] }}"
+    content: "{{ item['cert'] }}"
+    dest: "{{ consul_config_path | dirname }}/certs/client/{{ item['filename'] }}"
     owner: "{{ consul_user }}"
     group: "{{ consul_group }}"
     mode: 0400
-  loop: "{{ _consul_certs['client'][consul_datacenter] | dict2items }}"
+  loop:
+    - "{{ _consul_certs['client'][consul_datacenter]['cert_private_key'] }}"
+    - "{{ _consul_certs['client'][consul_datacenter]['cert_public_key'] }}"
   when:
     - _consul_certs.client is defined
     - _consul_certs['client'].keys()|length > 0
@@ -84,12 +87,28 @@
 
 - name: write out consul ca
   ansible.builtin.copy:
-    content: "{{ _consul_ca['pub'] }}"
-    dest: "{{ consul_config_path | dirname }}/certs/consul_ca.pem"
+    content: "{{ _consul_ca['root']['pub'] }}"
+    dest: "{{ consul_config_path | dirname }}/certs/hashi_ca.pem"
     owner: "{{ consul_user }}"
     group: "{{ consul_group }}"
     mode: 0400
-  when: _consul_ca.keys()|length > 0
+  when: _consul_ca['root'].keys()|length > 0
+  tags:
+    - consul-certs
+
+- name: write out consul intermediate ca
+  ansible.builtin.copy:
+    content: "{{ item.content }}"
+    dest: "{{ consul_config_path | dirname }}/certs/{{ item.filename }}"
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: 0400
+  loop:
+    - content: "{{ _consul_ca['intermediate']['pub'] }}"
+      filename: "consul_ca.pem"
+    - content: "{{ _consul_ca['intermediate']['prv'] }}"
+      filename: "consul_ca.key"
+  when: _consul_ca['intermediate'].keys()|length > 0
   tags:
     - consul-certs
 
