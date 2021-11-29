@@ -1,0 +1,39 @@
+{%- if nomad_listener_interface == "default" %}
+  {% set nomad_listener_address =  ansible_facts['default_ipv4']['address'] %}
+{% elif nomad_listener_interface == "all" %}
+  {% set nomad_listener_address =  "0.0.0.0" -%}
+{% else %}
+  {% set nomad_listener_address =  ansible_facts[nomad_listener_interface]['ipv4']['address'] -%}
+{% endif %}
+
+name                  = "{{ ansible_facts['hostname'] }}"
+log_level             = "{{ nomad_log_level }}"
+data_dir              = "{{ nomad_config_path | dirname}}/data"
+datacenter            = "{{ nomad_datacenter }}"
+disable_update_check  = true
+
+{% if nomad_enable_syslog %}
+enable_syslog = true
+{% endif %}
+
+ports {
+  http = {{ nomad_ports['http'] }}
+  rpc  = {{ nomad_ports['rpc'] }}
+  serf = {{ nomad_ports['serf'] }}
+}
+
+bind_addr = "{{ nomad_listener_address }}"
+
+advertise {
+  http = "{{ nomad_listener_address }}"
+  rpc  = "{{ nomad_listener_address }}"
+  serf = "{{ nomad_listener_address }}"
+}
+
+{# consul {
+  address  = "127.0.0.1:8501"
+  ssl      = true
+  ca_file   = "{{ nomad_config_path | dirname }}/certs/hashi_ca.pem"
+  cert_file = "{{ nomad_config_path | dirname | replace('nomad', 'consul') }}/certs/client/consul_{{ nomad_datacenter }}_client_crt.pem"
+  key_file  = "{{ nomad_config_path | dirname | replace('nomad', 'consul') }}/certs/client/consul_{{ nomad_datacenter }}_client_key.pem"
+} #}

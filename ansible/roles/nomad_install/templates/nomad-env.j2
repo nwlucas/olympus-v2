@@ -1,0 +1,3 @@
+NOMAD_CACERT="{{ nomad_config_path | dirname }}/certs/nomad_ca.pem"
+NOMAD_CLIENT_CERT="{{ nomad_config_path | dirname }}/certs/client/nomad_{{ nomad_datacenter }}_client_crt.pem"
+NOMAD_CLIENT_KEY="{{ nomad_config_path | dirname }}/certs/client/nomad_{{ nomad_datacenter }}_client_key.pem"

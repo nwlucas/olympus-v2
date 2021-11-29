@@ -9,7 +9,7 @@ consul_install_override: false
 
 consul_version: "1.10.4"
 consul_user: "consul"
-consul_group: "consul"
+consul_group: "hashi"
 consul_install_dependencies: ["unzip"]
 
 consul_config_path: "/opt/consul/consul.hcl"

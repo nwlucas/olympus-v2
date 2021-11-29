@@ -1,2 +1,5 @@
 ---
-# vars file for nomad-install
+# vars file for nomad_install
+
+_nomad_certs: "{{ {} | combine(nomad_certs) }}"
+_nomad_ca: "{{ {} | combine(nomad_ca) }}"

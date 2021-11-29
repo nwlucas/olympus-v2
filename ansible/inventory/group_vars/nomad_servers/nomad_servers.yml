@@ -1,0 +1,8 @@
+nomad_install_debug: false
+nomad_install_override: false
+nomad_version: "1.2.2"
+use_certbot_cert: true
+# This is not required as the default interface for these devices is eth0 but this is here
+# to show the possible customization and testing. Defining an invalid interface will cause
+# the play to fail.
+nomad_listener_interface: "eth0"

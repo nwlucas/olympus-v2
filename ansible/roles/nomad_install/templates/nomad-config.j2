@@ -1,5 +1,3 @@
-log_level = "{{ nomad_log_level }}"
-data_dir  = "{{ nomad_config_path | dirname}}/data"
 {% if inventory_hostname in groups['nomad_servers'] %}
 server {
   enabled                 = true
@@ -9,7 +7,6 @@ server {
 {% else %}
 client {
   enabled = true
-  servers = ["nomad.service.consul"]
 }
 {% endif %}
 
@@ -17,10 +14,14 @@ tls {
   http  = true
   rpc   = true
 
-  ca_file   = ""
-  cert-file = ""
-  key_file  = ""
-
+  ca_file   = "{{ nomad_config_path | dirname }}/certs/hashi_ca.pem"
+{% if inventory_hostname in groups['nomad_servers'] %}
+  cert_file = "{{ nomad_config_path | dirname }}/certs/cluster/nomad_{{ inventory_hostname }}.pem"
+  key_file  = "{{ nomad_config_path | dirname }}/certs/cluster/nomad_{{ inventory_hostname }}.key"
+{% else %}
+  cert_file = "{{ nomad_config_path | dirname }}/certs/client/nomad_{{ nomad_datacenter }}_client_crt.pem"
+  key_file  = "{{ nomad_config_path | dirname }}/certs/client/nomad_{{ nomad_datacenter }}_client_key.pem"
+{% endif %}
   verify_server_hostname  = true
   verify_https_client     = true
 }

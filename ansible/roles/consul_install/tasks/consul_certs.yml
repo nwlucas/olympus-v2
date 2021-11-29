@@ -59,8 +59,9 @@
     dest: "{{ consul_config_path | dirname }}/certs/cluster/{{ item.value['filename'] }}"
     owner: "{{ consul_user }}"
     group: "{{ consul_group }}"
-    mode: 0400
+    mode: 0440
   loop: "{{ _consul_certs['cluster'][inventory_hostname] | dict2items }}"
+  notify: restart consul services
   when:
     - inventory_hostname in _consul_certs['cluster']
     - _consul_certs.cluster is defined
@@ -74,10 +75,11 @@
     dest: "{{ consul_config_path | dirname }}/certs/client/{{ item['filename'] }}"
     owner: "{{ consul_user }}"
     group: "{{ consul_group }}"
-    mode: 0400
+    mode: 0440
   loop:
     - "{{ _consul_certs['client'][consul_datacenter]['cert_private_key'] }}"
     - "{{ _consul_certs['client'][consul_datacenter]['cert_public_key'] }}"
+  notify: restart consul services
   when:
     - _consul_certs.client is defined
     - _consul_certs['client'].keys()|length > 0
@@ -91,8 +93,9 @@
     dest: "{{ consul_config_path | dirname }}/certs/hashi_ca.pem"
     owner: "{{ consul_user }}"
     group: "{{ consul_group }}"
-    mode: 0400
+    mode: 0440
   when: _consul_ca['root'].keys()|length > 0
+  notify: restart consul services
   tags:
     - consul-certs
 
@@ -102,13 +105,14 @@
     dest: "{{ consul_config_path | dirname }}/certs/{{ item.filename }}"
     owner: "{{ consul_user }}"
     group: "{{ consul_group }}"
-    mode: 0400
+    mode: 0440
   loop:
     - content: "{{ _consul_ca['intermediate']['pub'] }}"
       filename: "consul_ca.pem"
     - content: "{{ _consul_ca['intermediate']['prv'] }}"
       filename: "consul_ca.key"
   when: _consul_ca['intermediate'].keys()|length > 0
+  notify: restart consul services
   tags:
     - consul-certs
 

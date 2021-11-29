@@ -1,2 +1,22 @@
 ---
-# handlers file for nomad-install
+# handlers file for nomad_install
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen:
+    - reload_systemd
+    - systemd_reload
+
+- name: restart nomad
+  ansible.builtin.systemd:
+    name: nomad.service
+    state: restarted
+  listen:
+    - restart_nomad
+    - nomad_restart
+    - "restart nomad services"
+
+- name: restart systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved.service
+    state: restarted

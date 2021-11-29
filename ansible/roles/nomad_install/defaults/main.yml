@@ -9,7 +9,7 @@ nomad_install_override: false
 
 nomad_version: "1.2.2"
 nomad_user: "nomad"
-nomad_group: "nomad"
+nomad_group: "hashi"
 nomad_install_dependencies: ["unzip"]
 
 nomad_config_path: "/opt/nomad/nomad.hcl"
@@ -40,16 +40,10 @@ nomad_enable_syslog: false
 nomad_enable_ui: true
 
 nomad_datacenter: "dc1"
-nomad_domain: "nomad."
 nomad_log_level: "info"
-nomad_alt_domain: ""
-nomad_ports:
-  dns: 8600
-  http: 8500
-  https: 8501
-  grpc: 8502
-  lan_serf: 8301
-  wan_serf: 8302
-  server: 8300
 
 nomad_listener_interface: "default"
+nomad_ports:
+  http: 4646
+  rpc: 4647
+  serf: 4648

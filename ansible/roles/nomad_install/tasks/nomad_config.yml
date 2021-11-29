@@ -20,10 +20,21 @@
   tags:
     - nomad-config
 
-- name: place nomad configuration
+- name: place nomad common configuration
+  ansible.builtin.template:
+    src: "nomad-common.j2"
+    dest: "{{ nomad_config_path | dirname }}/nomad.hcl"
+    owner: "{{ nomad_user }}"
+    group: "{{ nomad_group }}"
+    mode: 0640
+  notify: restart nomad services
+  tags:
+    - nomad-config
+
+- name: place nomad agent specific configuration
   ansible.builtin.template:
     src: "nomad-config.j2"
-    dest: "{{ nomad_config_path | dirname }}/nomad.hcl"
+    dest: "{{ nomad_config_path | dirname }}/agent.hcl"
     owner: "{{ nomad_user }}"
     group: "{{ nomad_group }}"
     mode: 0640

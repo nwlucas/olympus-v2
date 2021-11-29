@@ -10,7 +10,7 @@ vault_install_override: false
 
 vault_version: "1.8.5"
 vault_user: "vault"
-vault_group: "vault"
+vault_group: "hashi"
 vault_install_dependencies: ["unzip"]
 
 vault_config_path: "/opt/vault/vault.hcl"

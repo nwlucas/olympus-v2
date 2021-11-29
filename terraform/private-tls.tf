@@ -156,6 +156,7 @@ module "nomad_cert" {
     "nomad.service.consul",
     format("nomad.service.%s.consul", var.hashi_datacenter),
     "nomad-server",
+    "server.global.nomad",
     "localhost"
   ]
   ip_addresses       = flatten([data.dns_a_record_set.hosts[each.key].addrs, "127.0.0.1"])
@@ -228,6 +229,7 @@ module "nomad_client_cert" {
     format("client.nomad.%s.consul", var.hashi_datacenter),
     format("nomad-client.%s.consul", var.hashi_datacenter),
     format("nomad-client.service.%s.consul", var.hashi_datacenter),
+    "client.global.nomad",
     "nomad-client",
   ]
   ca_key_algorithm   = module.hashi_intermediate_ca.cert_algorithm

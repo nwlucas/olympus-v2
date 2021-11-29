@@ -1,1 +1,2 @@
 consul_listener_interface: "enp0s20f1"
+nomad_listener_interface: "enp0s20f1"
