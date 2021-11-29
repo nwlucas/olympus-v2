@@ -1,0 +1,26 @@
+log_level = "{{ nomad_log_level }}"
+data_dir  = "{{ nomad_config_path | dirname}}/data"
+{% if inventory_hostname in groups['nomad_servers'] %}
+server {
+  enabled                 = true
+  bootstrap_expect        = {{ groups['nomad_servers']|length }}
+  encrypt                 = "{{ nomad_encrypt_token }}"
+}
+{% else %}
+client {
+  enabled = true
+  servers = ["nomad.service.consul"]
+}
+{% endif %}
+
+tls {
+  http  = true
+  rpc   = true
+
+  ca_file   = ""
+  cert-file = ""
+  key_file  = ""
+
+  verify_server_hostname  = true
+  verify_https_client     = true
+}

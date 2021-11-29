@@ -1,2 +1,55 @@
 ---
-# defaults file for nomad-install
+# defaults file for nomad_install
+_install_nomad: false
+
+nomad_install_debug: false
+hashi_binary_dir: "/usr/local/bin"
+
+nomad_install_override: false
+
+nomad_version: "1.2.2"
+nomad_user: "nomad"
+nomad_group: "nomad"
+nomad_install_dependencies: ["unzip"]
+
+nomad_config_path: "/opt/nomad/nomad.hcl"
+nomad_archive_url: "https://releases.hashicorp.com/nomad/{{ nomad_version }}"
+nomad_dirs:
+  - dir: "{{ hashi_binary_dir }}"
+    owner: "root"
+    group: "root"
+  - dir: "{{ nomad_config_path | dirname }}"
+    owner: "{{ nomad_user }}"
+    group: "{{ nomad_group }}"
+  - dir: "{{ nomad_config_path | dirname }}/data"
+    owner: "{{ nomad_user }}"
+    group: "{{ nomad_group }}"
+  - dir: "{{ nomad_config_path | dirname }}/certs"
+    owner: "{{ nomad_user }}"
+    group: "{{ nomad_group }}"
+  - dir: "{{ nomad_config_path | dirname }}/certs/cluster"
+    owner: "{{ nomad_user }}"
+    group: "{{ nomad_group }}"
+  - dir: "{{ nomad_config_path | dirname }}/certs/client"
+    owner: "{{ nomad_user }}"
+    group: "{{ nomad_group }}"
+
+## nomad configuration variables
+
+nomad_enable_syslog: false
+nomad_enable_ui: true
+
+nomad_datacenter: "dc1"
+nomad_domain: "nomad."
+nomad_log_level: "info"
+nomad_alt_domain: ""
+nomad_ports:
+  dns: 8600
+  http: 8500
+  https: 8501
+  grpc: 8502
+  lan_serf: 8301
+  wan_serf: 8302
+  server: 8300
+
+nomad_listener_interface: "default"

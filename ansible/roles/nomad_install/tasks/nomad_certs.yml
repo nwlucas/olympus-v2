@@ -1,0 +1,116 @@
+- name: show _nomad_certs
+  ansible.builtin.debug:
+    var: _nomad_certs
+  when: nomad_install_debug
+  tags:
+    - nomad-certs
+
+- name: is there a cluster key in _nomad_certs?
+  ansible.builtin.debug:
+    var: _nomad_certs['cluster'] is defined
+  when:
+    - nomad_install_debug
+    - inventory_hostname in _nomad_certs['cluster']
+  tags:
+    - nomad-certs
+
+- name: is there a client key in _nomad_certs?
+  ansible.builtin.debug:
+    var: _nomad_certs['client'][nomad_datacenter] is defined
+  when: nomad_install_debug
+  tags:
+    - nomad-certs
+
+- name: show _nomad_ca
+  ansible.builtin.debug:
+    var: _nomad_ca
+  when: nomad_install_debug
+  tags:
+    - nomad-certs
+
+- name: show cluster certs variable converted using dict2items
+  ansible.builtin.debug:
+    var: item | dict2items
+  when:
+    - inventory_hostname in _nomad_certs['cluster']
+    - nomad_install_debug
+    - _nomad_certs.cluster is defined
+    - _nomad_certs['cluster'].keys()|length > 0
+  loop:
+    - "{{ _nomad_certs['cluster'][inventory_hostname] }}"
+  tags:
+    - nomad-certs
+
+- name: show client certs variable
+  ansible.builtin.debug:
+    var: item
+  when:
+    - nomad_install_debug
+    - _nomad_certs.client is defined
+  loop:
+    - "{{ _nomad_certs['client'][nomad_datacenter]['cert_private_key'] }}"
+    - "{{ _nomad_certs['client'][nomad_datacenter]['cert_public_key'] }}"
+  tags:
+    - nomad-certs
+
+- name: write out nomad node cluster cert and key
+  ansible.builtin.copy:
+    content: "{{ item.value['cert'] }}"
+    dest: "{{ nomad_config_path | dirname }}/certs/cluster/{{ item.value['filename'] }}"
+    owner: "{{ nomad_user }}"
+    group: "{{ nomad_group }}"
+    mode: 0400
+  loop: "{{ _nomad_certs['cluster'][inventory_hostname] | dict2items }}"
+  when:
+    - inventory_hostname in _nomad_certs['cluster']
+    - _nomad_certs.cluster is defined
+    - _nomad_certs['cluster'].keys()|length > 0
+  tags:
+    - nomad-certs
+
+- name: write out nomad node client cert and key
+  ansible.builtin.copy:
+    content: "{{ item['cert'] }}"
+    dest: "{{ nomad_config_path | dirname }}/certs/client/{{ item['filename'] }}"
+    owner: "{{ nomad_user }}"
+    group: "{{ nomad_group }}"
+    mode: 0400
+  loop:
+    - "{{ _nomad_certs['client'][nomad_datacenter]['cert_private_key'] }}"
+    - "{{ _nomad_certs['client'][nomad_datacenter]['cert_public_key'] }}"
+  when:
+    - _nomad_certs.client is defined
+    - _nomad_certs['client'].keys()|length > 0
+    - _nomad_certs['client'][nomad_datacenter].keys()|length > 0
+  tags:
+    - nomad-certs
+
+- name: write out nomad ca
+  ansible.builtin.copy:
+    content: "{{ _nomad_ca['root']['pub'] }}"
+    dest: "{{ nomad_config_path | dirname }}/certs/hashi_ca.pem"
+    owner: "{{ nomad_user }}"
+    group: "{{ nomad_group }}"
+    mode: 0400
+  when: _nomad_ca['root'].keys()|length > 0
+  tags:
+    - nomad-certs
+
+- name: write out nomad intermediate ca
+  ansible.builtin.copy:
+    content: "{{ item.content }}"
+    dest: "{{ nomad_config_path | dirname }}/certs/{{ item.filename }}"
+    owner: "{{ nomad_user }}"
+    group: "{{ nomad_group }}"
+    mode: 0400
+  loop:
+    - content: "{{ _nomad_ca['intermediate']['pub'] }}"
+      filename: "nomad_ca.pem"
+    - content: "{{ _nomad_ca['intermediate']['prv'] }}"
+      filename: "nomad_ca.key"
+  when: _nomad_ca['intermediate'].keys()|length > 0
+  tags:
+    - nomad-certs
+
+- name: Force all notified handlers to run at this point, not waiting for normal sync points
+  meta: flush_handlers

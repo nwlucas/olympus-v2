@@ -1,0 +1,66 @@
+- name: define supported *nix distributions
+  ansible.builtin.set_fact:
+    _nomad_nix_distros:
+      # - "RedHat"
+      # - "CentOS"
+      # - "OracleLinux"
+      # - "Fedora"
+      # - "Debian"
+      # - "FreeBSD"
+      # - "SmartOS"
+      - "Ubuntu"
+      # - "Archlinux"
+      # - "Alpine"
+      # - "Amazon"
+      # - "Flatcar"
+
+- name: define supported *nix arch
+  ansible.builtin.set_fact:
+    _nomad_nix_archs:
+      # - "RedHat"
+      # - "CentOS"
+      # - "OracleLinux"
+      # - "Fedora"
+      # - "Debian"
+      # - "FreeBSD"
+      - "x86_64"
+      - "aarch64"
+      # - "darwin"
+      # - "Alpine"
+      # - "Amazon"
+      # - "Flatcar"
+
+- name: check distribution compatibility
+  ansible.builtin.fail:
+    msg: "{{ ansible_facts['distribution'] }} is not currently supported by this role."
+  when:
+    - ansible_facts['distribution'] not in _nomad_nix_distros
+    - ansible_facts['os_family'] != 'Windows'
+
+- name: check architecture compatibility
+  ansible.builtin.fail:
+    msg: "{{ ansible_facts['architecture'] }} is not currently supported by this role."
+  when:
+    - ansible_facts['architecture'] not in _nomad_nix_archs
+    - ansible_facts['os_family'] != 'Windows'
+
+- name: check for invalid nomad version
+  ansible.builtin.fail:
+    msg: "Invalid nomad version"
+  when:
+    - nomad_version is not version('0.1.0', operator='ge', version_type='semantic')
+
+- name: check for invalid listener interface
+  ansible.builtin.fail:
+    msg: "Invalid listener interface. must be one of {{ ansible_facts['interfaces'] }}, but received: {{ nomad_listener_interface }}"
+  when:
+    (nomad_listener_interface is defined and nomad_listener_interface not in ansible_facts['interfaces'])
+    and nomad_listener_interface != "default"
+    and nomad_listener_interface != "all"
+
+- name: check for encrypt token
+  ansible.builtin.fail:
+    msg: "nomad encrypt token is not set or is empty"
+  when: nomad_encrypt_token is not defined
+    or nomad_encrypt_token|length == 0
+    or nomad_encrypt_token|length < 32

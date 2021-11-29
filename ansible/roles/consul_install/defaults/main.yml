@@ -1,7 +1,6 @@
 ---
 # defaults file for consul_install
 _install_consul: false
-use_certbot_cert: false
 
 consul_install_debug: false
 hashi_binary_dir: "/usr/local/bin"
@@ -52,5 +51,7 @@ consul_ports:
   lan_serf: 8301
   wan_serf: 8302
   server: 8300
+
+consul_recursors: ["1.1.1.1", "8.8.8.8"]
 
 consul_listener_interface: "default"

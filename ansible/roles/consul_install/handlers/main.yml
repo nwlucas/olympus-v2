@@ -15,3 +15,8 @@
     - restart_consul
     - consul_restart
     - "restart consul services"
+
+- name: restart systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved.service
+    state: restarted

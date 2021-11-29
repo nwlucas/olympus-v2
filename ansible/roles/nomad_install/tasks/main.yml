@@ -1,2 +1,207 @@
 ---
-# tasks file for nomad-install
+# tasks file for nomad_install
+
+- name: Include check/asserts
+  ansible.builtin.import_tasks: ./nomad_asserts.yml
+  tags:
+    - nomad-install
+    - nomad-config
+    - nomad-certs
+
+- name: test for binary
+  ansible.builtin.stat:
+    path: "{{ hashi_binary_dir }}/nomad"
+  register: nomad_binary
+  tags:
+    - nomad-install
+    - nomad-config
+    - nomad-certs
+
+- name: test for symlink to binary
+  ansible.builtin.stat:
+    path: "/usr/local/bin/nomad"
+  register: nomad_binary_link
+  when: hashi_binary_dir != "/usr/local/bin"
+  tags:
+    - nomad-install
+    - nomad-config
+    - nomad-certs
+
+- name: test for systemd service unit
+  ansible.builtin.stat:
+    path: "/etc/systemd/system/nomad.service"
+  register: nomad_systemd
+  tags:
+    - nomad-install
+    - nomad-config
+    - nomad-certs
+
+- name: get systemd version
+  ansible.builtin.command:
+    cmd: "/usr/bin/systemctl --version"
+  register: systemd_version
+  changed_when: false
+  when: ansible_facts['service_mgr'] == "systemd"
+  tags:
+    - skip_ansible_lint
+    - nomad-install
+    - nomad-config
+    - nomad-certs
+
+- name: set the discovered systemd version
+  ansible.builtin.set_fact:
+    _discovered_systemd_version: "{{ systemd_version.stdout_lines[0].split(' ')[1] | int }}"
+  when: ansible_facts['service_mgr'] == "systemd" and systemd_version.stdout_lines|length > 0
+  tags:
+    - nomad-install
+    - nomad-config
+    - nomad-certs
+
+- name: register binary version
+  ansible.builtin.command:
+    cmd: "{{ hashi_binary_dir }}/nomad -v"
+  register: nomad_binary_version
+  changed_when: false
+  when: nomad_binary.stat.exists
+  tags:
+    - nomad-install
+    - nomad-config
+    - nomad-certs
+
+- name: set the discovered binary version
+  ansible.builtin.set_fact:
+    _discovered_binary_version: "{{ nomad_binary_version.stdout_lines[0].split(' ')[1][1:] }}"
+  when: nomad_binary.stat.exists
+  tags:
+    - nomad-install
+    - nomad-config
+    - nomad-certs
+
+- name: testing variable _discovered_binary_version
+  ansible.builtin.debug:
+    var: _discovered_binary_version
+  when: nomad_install_debug
+  tags:
+    - nomad-install
+    - nomad-config
+    - nomad-certs
+
+- name: determine if to install or upgrade nomad binary
+  ansible.builtin.set_fact:
+    _install_nomad: true
+  when: (not nomad_binary.stat.exists)
+    or (nomad_binary.stat.exists and _discovered_binary_version is version(nomad_version,operator='lt',version_type='semver'))
+    or nomad_install_override
+  tags:
+    - nomad-install
+    - nomad-config
+    - nomad-certs
+
+- name: testing variable nomad_binary_version
+  ansible.builtin.debug:
+    var: _install_nomad
+  when: nomad_install_debug
+  tags:
+    - nomad-install
+    - nomad-config
+    - nomad-certs
+
+- name: testing variable nomad_version to be installed
+  ansible.builtin.debug:
+    var: nomad_version
+  when: nomad_install_debug and _install_nomad
+  tags:
+    - nomad-install
+    - nomad-config
+    - nomad-certs
+
+- name: testing variable nomad_archive_url to get nomad binary from
+  ansible.builtin.debug:
+    var: nomad_archive_url
+  when: nomad_install_debug and _install_nomad
+  tags:
+    - nomad-install
+    - nomad-config
+    - nomad-certs
+
+- name: create nomad group
+  ansible.builtin.group:
+    name: "{{ nomad_group }}"
+  tags:
+    - nomad-config
+    - nomad-certs
+    - nomad-install
+
+- name: create nomad user
+  ansible.builtin.user:
+    name: "{{ nomad_user }}"
+    group: "{{ nomad_group }}"
+    system: true
+    shell: "/sbin/nologin"
+    comment: "nomad nologin user"
+    home: "{{ nomad_config_path | dirname }}"
+    state: present
+  tags:
+    - nomad-config
+    - nomad-certs
+    - nomad-install
+
+- name: install prerequisites
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    update_cache: true
+    autoremove: true
+    autoclean: true
+  when: nomad_install_dependencies is defined
+  loop:
+    - "{{ nomad_install_dependencies }}"
+  tags:
+    - nomad-config
+    - nomad-certs
+    - nomad-install
+
+- name: create nomad dirs
+  ansible.builtin.file:
+    path: "{{ item.dir }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: 0755
+    state: directory
+  loop: "{{ nomad_dirs }}"
+  tags:
+    - nomad-config
+    - nomad-certs
+    - nomad-install
+
+- name: install nomad
+  ansible.builtin.include_tasks:
+    file: nomad_install.yml
+  when: _install_nomad
+  tags:
+    - nomad-install
+    - nomad-config
+    - nomad-certs
+
+- name: install nomad certs
+  ansible.builtin.include_tasks: ./nomad_certs.yml
+  when: (_nomad_certs is defined and _nomad_certs.keys()|length > 0)
+    or (_nomad_ca is defined and _nomad_ca.keys()|length > 0)
+  tags:
+    - nomad-install
+    - nomad-certs
+    - nomad-config
+
+- name: configure nomad
+  ansible.builtin.include_tasks: ./nomad_config.yml
+  tags:
+    - nomad-install
+    - nomad-config
+
+- name: ensure nomad service is enabled
+  ansible.builtin.systemd:
+    name: nomad.service
+    enabled: true
+    state: started
+  tags:
+    - nomad-install
+    - nomad-config

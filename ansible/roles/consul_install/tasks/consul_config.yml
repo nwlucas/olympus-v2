@@ -43,5 +43,26 @@
   tags:
     - consul-config
 
+- name: ensure resolved.conf.d directory
+  ansible.builtin.file:
+    path: "/etc/systemd/resolved.conf.d"
+    owner: "root"
+    group: "root"
+    mode: 0755
+    state: directory
+  tags:
+    - consul-config
+
+- name: configure DNS for Consul
+  ansible.builtin.template:
+    src: "consul-dns.j2"
+    dest: "/etc/systemd/resolved.conf.d/consul.conf"
+    owner: "root"
+    group: "root"
+    mode: 0644
+  notify: restart systemd-resolved
+  when:
+    - ansible_facts['service_mgr'] == 'systemd'
+
 - name: Force all notified handlers to run at this point, not waiting for normal sync points
   meta: flush_handlers

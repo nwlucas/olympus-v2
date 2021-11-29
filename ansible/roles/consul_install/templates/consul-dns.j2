@@ -1,0 +1,5 @@
+[Resolve]
+DNS=127.0.0.1{% if _discovered_systemd_version is version(246,operator='ge') %}:8600{% endif %}
+
+DNSSEC=false
+Domains=~consul

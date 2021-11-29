@@ -36,6 +36,27 @@
     - consul-config
     - consul-certs
 
+- name: get systemd version
+  ansible.builtin.command:
+    cmd: "/usr/bin/systemctl --version"
+  register: systemd_version
+  changed_when: false
+  when: ansible_facts['service_mgr'] == "systemd"
+  tags:
+    - skip_ansible_lint
+    - consul-install
+    - consul-config
+    - consul-certs
+
+- name: set the discovered systemd version
+  ansible.builtin.set_fact:
+    _discovered_systemd_version: "{{ systemd_version.stdout_lines[0].split(' ')[1] | int }}"
+  when: ansible_facts['service_mgr'] == "systemd" and systemd_version.stdout_lines|length > 0
+  tags:
+    - consul-install
+    - consul-config
+    - consul-certs
+
 - name: register binary version
   ansible.builtin.command:
     cmd: "{{ hashi_binary_dir }}/consul -v"

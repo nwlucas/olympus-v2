@@ -1,0 +1,103 @@
+---
+- name: preparing for nomad upgrade
+  block:
+    - name: get service status
+      ansible.builtin.service_facts:
+      register: services_state
+
+    - name: testing variable nomad_version to be installed
+      ansible.builtin.debug:
+        var: services_state.ansible_facts.services
+      when: nomad_install_debug
+
+    - name: stop nomad service
+      ansible.builtin.systemd:
+        name: nomad.service
+        state: stop
+      when:
+        - "'nomad' in services_state.ansible_facts.services"
+        - services_state.ansible_facts.services["nomad.service"].state == "running"
+  when:
+    - nomad_systemd.stat.exists
+    - nomad_binary.stat.exists
+  tags:
+    - nomad-install
+
+- name: remove current binary if it exists
+  ansible.builtin.file:
+    path: "{{ hashi_binary_dir }}/nomad"
+    state: absent
+  when: nomad_binary.stat.exists
+  tags:
+    - nomad-install
+
+- name: set nomad archive filename
+  ansible.builtin.set_fact:
+    _nomad_archive: |
+      nomad_{{ nomad_version }}_{{ ansible_facts['system']|lower }}_{%- if ansible_facts['architecture'] == 'aarch64' %}arm64{%- else %}amd64{%- endif %}.zip
+
+- name: download binary archive
+  ansible.builtin.get_url:
+    url: |
+      {{ nomad_archive_url }}/{{ _nomad_archive }}
+    dest: /tmp/{{ _nomad_archive }}
+    owner: "{{ nomad_user }}"
+    group: "{{ nomad_group }}"
+    mode: 0755
+  tags:
+    - nomad-install
+
+- name: test for archive
+  ansible.builtin.stat:
+    path: /tmp/{{ _nomad_archive }}
+  register: nomad_archive_dl
+  tags:
+    - nomad-install
+
+- name: testing variable nomad_archive_dl
+  ansible.builtin.debug:
+    var: nomad_archive_dl
+  when: nomad_install_debug
+  tags:
+    - nomad-install
+
+- name: unpack archive
+  ansible.builtin.unarchive:
+    remote_src: true
+    src: /tmp/{{ _nomad_archive }}
+    dest: "{{ hashi_binary_dir }}"
+    owner: "{{ nomad_user }}"
+    group: "{{ nomad_group }}"
+    mode: "0755"
+  tags:
+    - nomad-install
+
+- name: remove downloaded archive if it still exists
+  ansible.builtin.file:
+    path: /tmp/{{ _nomad_archive }}
+    state: absent
+  when: nomad_archive_dl.stat.exists
+  tags:
+    - nomad-install
+
+- name: set binary capabilities
+  community.general.capabilities:
+    path: "{{ hashi_binary_dir }}/nomad"
+    capability: "cap_ipc_lock=ep"
+    state: present
+  tags:
+    - nomad-install
+
+- name: create symbolic link for nomad
+  ansible.builtin.file:
+    src: "{{ hashi_binary_dir }}/nomad"
+    dest: "/usr/local/bin/nomad"
+    state: link
+    owner: "{{ nomad_user }}"
+    group: "{{ nomad_group }}"
+    mode: 0755
+  when:
+    - hashi_binary_dir != "/usr/local/bin"
+    - not nomad_binary_link.stat.exists
+  tags:
+    - nomad-install
