@@ -7,28 +7,16 @@
 
 - name: is there a cluster key in _vault_certs?
   ansible.builtin.debug:
-    var: _vault_certs.cluster is defined
-  when: vault_install_debug
-  tags:
-    - vault-certs
-
-- name: is there a cluster key in _vault_certs?
-  ansible.builtin.debug:
     var: _vault_certs['cluster'] is defined
-  when: vault_install_debug
+  when:
+    - vault_install_debug
+    - inventory_hostname in _vault_certs['cluster']
   tags:
     - vault-certs
 
 - name: is there a client key in _vault_certs?
   ansible.builtin.debug:
-    var: _vault_certs.client is defined
-  when: vault_install_debug
-  tags:
-    - vault-certs
-
-- name: is there a client key in _vault_certs?
-  ansible.builtin.debug:
-    var: _vault_certs['client'] is defined
+    var: _vault_certs['client']['vault_datacenter'] is defined
   when: vault_install_debug
   tags:
     - vault-certs
@@ -40,82 +28,91 @@
   tags:
     - vault-certs
 
-- name: show install_certbot
+- name: show cluster certs variable converted using dict2items
   ansible.builtin.debug:
-    var: install_certbot
-  when: vault_install_debug
-  tags:
-    - vault-certs
-
-- name: show use_certbot_cert
-  ansible.builtin.debug:
-    var: use_certbot_cert
-  when: vault_install_debug
-  tags:
-    - vault-certs
-
-- name: copy certbot certs
-  ansible.builtin.copy:
-    remote_src: true
-    src: "{{ item.src }}"
-    dest: "{{ item.dest }}"
-    owner: "{{ vault_user }}"
-    group: "{{ vault_group }}"
-    mode: 0400
+    var: item | dict2items
+  when:
+    - inventory_hostname in _vault_certs['cluster']
+    - vault_install_debug
+    - _vault_certs['cluster'] is defined
+    - _vault_certs['cluster'].keys()|length > 0
   loop:
-    - src: "/etc/letsencrypt/live/{{ inventory_hostname }}/fullchain.pem"
-      dest: "{{ vault_config_path | dirname }}/certs/client/chain.pem"
-    - src: "/etc/letsencrypt/live/{{ inventory_hostname }}/privkey.pem"
-      dest: "{{ vault_config_path | dirname }}/certs/client/privkey.pem"
-  when: use_certbot_cert and install_certbot
-  notify: "restart vault services"
+    - "{{ _vault_certs['cluster'][inventory_hostname] }}"
   tags:
     - vault-certs
 
-- name: show use_certbot_cert
+- name: show client certs variable
   ansible.builtin.debug:
-    var: _vault_certs['cluster'] | dict2items
-  when: vault_install_debug
+    var: item
+  when:
+    - vault_install_debug
+    - _vault_certs['client'] is defined
   loop:
-    - "{{ _vault_certs['cluster'] }}"
+    - "{{ _vault_certs['client'][vault_datacenter]['cert_private_key'] }}"
+    - "{{ _vault_certs['client'][vault_datacenter]['cert_public_key'] }}"
   tags:
     - vault-certs
 
 - name: write out vault node cluster cert and key
   ansible.builtin.copy:
-    content: "{{ item.value.cert }}"
-    dest: "{{ vault_config_path | dirname }}/certs/cluster/{{ item.value.filename }}"
+    content: "{{ item.value['cert'] }}"
+    dest: "{{ vault_config_path | dirname }}/certs/cluster/{{ item.value['filename'] }}"
     owner: "{{ vault_user }}"
     group: "{{ vault_group }}"
-    mode: 0400
-  loop: "{{ _vault_certs['cluster'] | dict2items }}"
-  when: _vault_certs.cluster is defined and _vault_certs['cluster'].keys()|length > 0
+    mode: 0440
+  loop: "{{ _vault_certs['cluster'][inventory_hostname] | dict2items }}"
   notify: "restart vault services"
+  when:
+    - inventory_hostname in groups['vault_servers']
+    - _vault_certs['cluster'] is defined
+    - _vault_certs['cluster'][inventory_hostname].keys()|length > 0
   tags:
     - vault-certs
 
 - name: write out vault node client cert and key
   ansible.builtin.copy:
-    content: "{{ item.value.cert }}"
-    dest: "{{ vault_config_path | dirname }}/certs/client/{{ item.value.filename }}"
+    content: "{{ item['cert'] }}"
+    dest: "{{ vault_config_path | dirname }}/certs/client/{{ item['filename'] }}"
     owner: "{{ vault_user }}"
     group: "{{ vault_group }}"
-    mode: 0400
-  loop: "{{ _vault_certs['client'] | dict2items }}"
-  when: _vault_certs.client is defined and _vault_certs['client'].keys()|length > 0
+    mode: 0440
+  loop:
+    - "{{ _vault_certs['client'][vault_datacenter]['cert_private_key'] }}"
+    - "{{ _vault_certs['client'][vault_datacenter]['cert_public_key'] }}"
+  notify: "restart vault services"
+  when:
+    - _vault_certs['client'] is defined
+    - _vault_certs['client'].keys()|length > 0
+    - _vault_certs['client'][vault_datacenter].keys()|length > 0
+  tags:
+    - vault-certs
+
+- name: write out hashi ca
+  ansible.builtin.copy:
+    content: "{{ _vault_ca['root']['pub'] }}"
+    dest: "{{ vault_config_path | dirname }}/certs/hashi_ca.pem"
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    mode: 0440
+  when: _vault_ca['root'].keys()|length > 0
   notify: "restart vault services"
   tags:
     - vault-certs
 
-- name: write out vault ca
+- name: write out hashi intermediate ca
   ansible.builtin.copy:
-    content: "{{ _vault_ca['pub'] }}"
-    dest: "{{ vault_config_path | dirname }}/certs/vault_ca.pem"
+    content: "{{ item.content }}"
+    dest: "{{ vault_config_path | dirname }}/certs/{{ item.filename }}"
     owner: "{{ vault_user }}"
     group: "{{ vault_group }}"
-    mode: 0400
-  when: _vault_ca.keys()|length > 0
-  notify: "restart vault services"
+    mode: 0440
+  loop:
+    - content: "{{ _vault_ca['intermediate']['pub'] }}"
+      filename: "vault_ca.pem"
+    - content: "{{ _vault_ca['intermediate']['prv'] }}"
+      filename: "vault_ca.key"
+  when: _vault_ca['intermediate'].keys()|length > 0
+  notify: restart vault services
   tags:
     - vault-certs
 

@@ -6,5 +6,5 @@ install_certbot: true
 
 print_terraform_backend: false
 
-consul_datacenter: "olympus"
-nomad_datacenter: "olympus"
+consul_datacenter: "{{ _olympus_v2['consul_hosts']['datacenter'] }}"
+nomad_datacenter: "{{ _olympus_v2['nomad_hosts']['datacenter'] }}"

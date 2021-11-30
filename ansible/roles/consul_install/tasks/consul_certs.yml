@@ -34,7 +34,7 @@
   when:
     - inventory_hostname in _consul_certs['cluster']
     - consul_install_debug
-    - _consul_certs.cluster is defined
+    - _consul_certs['cluster'] is defined
     - _consul_certs['cluster'].keys()|length > 0
   loop:
     - "{{ _consul_certs['cluster'][inventory_hostname] }}"
@@ -46,7 +46,7 @@
     var: item
   when:
     - consul_install_debug
-    - _consul_certs.client is defined
+    - _consul_certs['client'] is defined
   loop:
     - "{{ _consul_certs['client'][consul_datacenter]['cert_private_key'] }}"
     - "{{ _consul_certs['client'][consul_datacenter]['cert_public_key'] }}"
@@ -63,8 +63,8 @@
   loop: "{{ _consul_certs['cluster'][inventory_hostname] | dict2items }}"
   notify: restart consul services
   when:
-    - inventory_hostname in _consul_certs['cluster']
-    - _consul_certs.cluster is defined
+    - inventory_hostname in groups['consul_servers']
+    - _consul_certs['cluster'] is defined
     - _consul_certs['cluster'].keys()|length > 0
   tags:
     - consul-certs
@@ -81,13 +81,13 @@
     - "{{ _consul_certs['client'][consul_datacenter]['cert_public_key'] }}"
   notify: restart consul services
   when:
-    - _consul_certs.client is defined
+    - _consul_certs['client'] is defined
     - _consul_certs['client'].keys()|length > 0
     - _consul_certs['client'][consul_datacenter].keys()|length > 0
   tags:
     - consul-certs
 
-- name: write out consul ca
+- name: write out hashi ca
   ansible.builtin.copy:
     content: "{{ _consul_ca['root']['pub'] }}"
     dest: "{{ consul_config_path | dirname }}/certs/hashi_ca.pem"
@@ -99,7 +99,7 @@
   tags:
     - consul-certs
 
-- name: write out consul intermediate ca
+- name: write out hashi intermediate ca
   ansible.builtin.copy:
     content: "{{ item.content }}"
     dest: "{{ consul_config_path | dirname }}/certs/{{ item.filename }}"

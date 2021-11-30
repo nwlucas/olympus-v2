@@ -1,0 +1,12 @@
+{%- if vault_listener_interface == "default" %}
+  {% set vault_listener_address =  ansible_facts['default_ipv4']['address'] %}
+{% elif vault_listener_interface == "all" %}
+  {% set vault_listener_address =  "0.0.0.0" -%}
+{% else %}
+  {% set vault_listener_address =  ansible_facts[vault_listener_interface]['ipv4']['address'] -%}
+{% endif %}
+
+export VAULT_ADDR="https://{{ vault_listener_address}}:{{ vault_listener_port }}"
+export VAULT_CACERT="{{ vault_config_path | dirname }}/certs/hashi_ca.pem"
+export VAULT_CLIENT_CERT="{{ vault_config_path | dirname }}/certs/client/{{ _vault_certs['client'][vault_datacenter]['cert_public_key']['filename'] }}"
+export VAULT_CLIENT_KEY="{{ vault_config_path | dirname }}/certs/client/{{ _vault_certs['client'][vault_datacenter]['cert_private_key']['filename'] }}"

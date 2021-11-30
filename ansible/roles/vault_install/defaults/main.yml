@@ -1,7 +1,6 @@
 ---
 # defaults file for vault_install
 _install_vault: false
-use_certbot_cert: false
 
 vault_install_debug: false
 hashi_binary_dir: "/usr/local/bin"
@@ -35,14 +34,12 @@ vault_dirs:
     owner: "{{ vault_user }}"
     group: "{{ vault_group }}"
 
-_def_vault_certs: {}
-_def_vault_ca: {}
-
 ## Vault configuration variables
 
 vault_listener_port: 8200
 vault_cluster_port: 8201
 vault_listener_interface: "default"
+vault_datacenter: "dc1"
 
 vault_storage: "raft"
 vault_ui: true

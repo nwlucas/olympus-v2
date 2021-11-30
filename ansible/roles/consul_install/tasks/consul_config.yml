@@ -64,5 +64,15 @@
   when:
     - ansible_facts['service_mgr'] == 'systemd'
 
+- name: place consul env in profiles
+  ansible.builtin.template:
+    src: consul-env-profile.j2
+    dest: "/etc/profile.d/consul.sh"
+    owner: "root"
+    group: "root"
+    mode: 0755
+  tags:
+    - consul-config
+
 - name: Force all notified handlers to run at this point, not waiting for normal sync points
   meta: flush_handlers

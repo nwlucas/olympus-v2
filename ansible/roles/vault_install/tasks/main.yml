@@ -36,6 +36,27 @@
     - vault-certs
     - vault-install
 
+- name: get systemd version
+  ansible.builtin.command:
+    cmd: "/usr/bin/systemctl --version"
+  register: systemd_version
+  changed_when: false
+  when: ansible_facts['service_mgr'] == "systemd"
+  tags:
+    - skip_ansible_lint
+    - vault-install
+    - vault-config
+    - vault-certs
+
+- name: set the discovered systemd version
+  ansible.builtin.set_fact:
+    _discovered_systemd_version: "{{ systemd_version.stdout_lines[0].split(' ')[1] | int }}"
+  when: ansible_facts['service_mgr'] == "systemd" and systemd_version.stdout_lines|length > 0
+  tags:
+    - vault-install
+    - vault-config
+    - vault-certs
+
 - name: register binary version
   ansible.builtin.command:
     cmd: "{{ hashi_binary_dir }}/vault -v"
@@ -148,12 +169,13 @@
   when: _install_vault
   tags:
     - vault-install
+    - vault-certs
+    - vault-config
 
 - name: install vault certs
   ansible.builtin.include_tasks:
-    file: vault_certs.yml
-  when: (_vault_certs is defined and
-    ( _vault_certs|selectattr('cluster','defined')|list|length > 0 or _vault_certs|selectattr('client','defined')|list|length > 0 ))
+    file: ./vault_certs.yml
+  when: (_vault_certs is defined and _vault_certs.keys()|length > 0)
     or (_vault_ca is defined and _vault_ca.keys()|length > 0)
   tags:
     - vault-install
@@ -162,7 +184,17 @@
 
 - name: configure vault
   ansible.builtin.include_tasks:
-    file: vault_config.yml
+    file: ./vault_config.yml
+  when: inventory_hostname in groups['vault_servers']
+  tags:
+    - vault-install
+    - vault-config
+
+- name: ensure vault service is enabled
+  ansible.builtin.systemd:
+    name: vault.service
+    enabled: true
+    state: started
   tags:
     - vault-install
     - vault-config

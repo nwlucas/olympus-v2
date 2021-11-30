@@ -81,10 +81,6 @@
   handlers:
     - name: import handlers
       ansible.builtin.import_tasks: ./handlers/main.yml
-  vars:
-    vault_init_debug: false
-    vault_unseal_debug: true
-    terraform_backend_debug: false
   pre_tasks:
     - name: add authorized keys
       ansible.posix.authorized_key:
@@ -207,6 +203,3 @@
       tags:
         - vault-unseal
         - never
-  tags:
-    - vault-init
-    - vault-unseal

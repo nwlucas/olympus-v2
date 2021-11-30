@@ -1,3 +1,3 @@
 CONSUL_CACERT="{{ consul_config_path | dirname }}/certs/consul_ca.pem"
-CONSUL_CLIENT_CERT="{{ consul_config_path | dirname }}/certs/client/consul_{{ consul_datacenter }}_client_crt.pem"
-CONSUL_CLIENT_KEY="{{ consul_config_path | dirname }}/certs/client/consul_{{ consul_datacenter }}_client_key.pem"
+CONSUL_CLIENT_CERT="{{ consul_config_path | dirname }}/certs/client/{{ _consul_certs['client'][consul_datacenter]['cert_public_key']['filename'] }}"
+CONSUL_CLIENT_KEY="{{ consul_config_path | dirname }}/certs/client/{{ _consul_certs['client'][consul_datacenter]['cert_private_key']['filename'] }}"

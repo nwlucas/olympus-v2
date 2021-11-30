@@ -16,11 +16,11 @@ tls {
 
   ca_file   = "{{ nomad_config_path | dirname }}/certs/hashi_ca.pem"
 {% if inventory_hostname in groups['nomad_servers'] %}
-  cert_file = "{{ nomad_config_path | dirname }}/certs/cluster/nomad_{{ inventory_hostname }}.pem"
-  key_file  = "{{ nomad_config_path | dirname }}/certs/cluster/nomad_{{ inventory_hostname }}.key"
+  cert_file = "{{ nomad_config_path | dirname }}/certs/cluster/{{ _nomad_certs['cluster'][inventory_hostname]['pub_cert']['filename'] }}"
+  key_file  = "{{ nomad_config_path | dirname }}/certs/cluster/{{ _nomad_certs['cluster'][inventory_hostname]['prv_key']['filename'] }}"
 {% else %}
-  cert_file = "{{ nomad_config_path | dirname }}/certs/client/nomad_{{ nomad_datacenter }}_client_crt.pem"
-  key_file  = "{{ nomad_config_path | dirname }}/certs/client/nomad_{{ nomad_datacenter }}_client_key.pem"
+  cert_file = "{{ nomad_config_path | dirname }}/certs/client/{{ _nomad_certs['client'][nomad_datacenter]['cert_public_key']['filename'] }}"
+  key_file  = "{{ nomad_config_path | dirname }}/certs/client/{{ _nomad_certs['client'][nomad_datacenter]['cert_private_key']['filename'] }}"
 {% endif %}
   verify_server_hostname  = true
   verify_https_client     = true

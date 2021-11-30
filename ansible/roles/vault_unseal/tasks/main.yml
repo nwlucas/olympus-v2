@@ -1,6 +1,6 @@
 ---
 # tasks file for vault_unseal
-- name: determine if cluster was initialized and files are still local
+- name: determine if cluster was initialized and unseal files are still local
   ansible.builtin.find:
     path: "{{ unseal_keys_dir_output }}"
     patterns: "^unseal_key_[0-5]$"
@@ -10,7 +10,7 @@
   become: false
   delegate_to: localhost
 
-- name: determine if cluster was initialized and files are still local
+- name: determine if cluster was initialized and root files are still local
   ansible.builtin.find:
     path: "{{ root_key_dir_output }}"
     patterns: "^rootkey$"

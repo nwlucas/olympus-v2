@@ -6,12 +6,6 @@
   {% set vault_listener_address =  ansible_facts[vault_listener_interface]['ipv4']['address'] -%}
 {% endif %}
 
-{%- if _vault_certs|selectattr("cluster", "defined")|list|length == 0 %}
-  {% set vault_cluster_proto = "http" %}
-{% else %}
-  {% set vault_cluster_proto = "https" %}
-{% endif %}
-
 {%- if vault_cluster_address is defined and vault_cluster_address != "" %}
   {% set _vault_cluster_address = vault_cluster_address %}
 {% else %}
@@ -26,14 +20,8 @@ listener "tcp" {
 listener "tcp" {
   address          = "{{ vault_listener_address }}:{{ vault_listener_port }}"
   cluster_address  = "{{ vault_listener_address }}:{{ vault_cluster_port }}"
-{% if install_certbot %}
-  tls_cert_file     = "{{ vault_config_path | dirname }}/certs/client/chain.pem"
-  tls_key_file      = "{{ vault_config_path | dirname }}/certs/client/privkey.pem"
-{% endif %}
-{% if _vault_certs|selectattr("client", "defined")|list|length > 0 %}
-  tls_cert_file     = "{{ vault_config_path | dirname }}/certs/client/{{ _vault_certs['client']['pub_cert']['filename'] }}"
-  tls_key_file      = "{{ vault_config_path | dirname }}/certs/client/{{ _vault_certs['client']['prv_key']['filename'] }}"
-{% endif %}
+  tls_cert_file     = "{{ vault_config_path | dirname }}/certs/client/{{ _vault_certs['client'][vault_datacenter]['cert_public_key']['filename'] }}"
+  tls_key_file      = "{{ vault_config_path | dirname }}/certs/client/{{ _vault_certs['client'][vault_datacenter]['cert_private_key']['filename'] }}"
   tls_min_version  = "tls12"
 }
 
@@ -43,12 +31,10 @@ storage "raft" {
   node_id    = "{{ ansible_facts['hostname'] }}"
 {% for node in groups['vault_servers'] %}
   retry_join {
-    leader_api_addr        = "{{ vault_cluster_proto }}://{{ node }}:{{ vault_listener_port }}"
-{% if _vault_certs|selectattr("cluster", "defined")|list|length > 0 %}
-    leader_ca_cert_file     = "{{ vault_config_path | dirname }}/certs/vault_ca.pem"
-    leader_client_cert_file = "{{ vault_config_path | dirname }}/certs/cluster/{{ _vault_certs['pub_cert']['filename'] }}"
-    leader_client_key_file  = "{{ vault_config_path | dirname }}/certs/cluster/{{ _vault_certs['prv_key']['filename'] }}"
-{% endif %}
+    leader_api_addr        = "https://{{ node }}:{{ vault_listener_port }}"
+    leader_ca_cert_file     = "{{ vault_config_path | dirname }}/certs/hashi_ca.pem"
+    leader_client_cert_file = "{{ vault_config_path | dirname }}/certs/cluster/{{ _vault_certs['cluster'][inventory_hostname]['pub_cert']['filename'] }}"
+    leader_client_key_file  = "{{ vault_config_path | dirname }}/certs/cluster/{{ _vault_certs['cluster'][inventory_hostname]['prv_key']['filename'] }}"
   }
 {% endfor %}
 }
@@ -58,5 +44,8 @@ disable_mlock = true
 {% if vault_ui %}
 ui            = true
 {% endif %}
-api_addr      = "{{ vault_cluster_proto }}://{{ vault_listener_address }}:{{ vault_listener_port }}"
-cluster_addr  = "{{ vault_cluster_proto }}://{{ _vault_cluster_address }}:{{ vault_cluster_port }}"
+api_addr      = "https://{{ vault_listener_address }}:{{ vault_listener_port }}"
+cluster_addr  = "https://{{ _vault_cluster_address }}:{{ vault_cluster_port }}"
+
+service_registration "consul" {}
+enable_response_header_raft_node_id = true

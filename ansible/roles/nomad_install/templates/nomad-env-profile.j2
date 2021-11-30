@@ -1,0 +1,12 @@
+{%- if nomad_listener_interface == "default" %}
+  {% set nomad_listener_address =  ansible_facts['default_ipv4']['address'] %}
+{% elif nomad_listener_interface == "all" %}
+  {% set nomad_listener_address =  "0.0.0.0" -%}
+{% else %}
+  {% set nomad_listener_address =  ansible_facts[nomad_listener_interface]['ipv4']['address'] -%}
+{% endif %}
+
+export NOMAD_ADDR="https://{{ nomad_listener_address }}:{{ nomad_ports['http'] }}"
+export NOMAD_CACERT="{{ nomad_config_path | dirname }}/certs/hashi_ca.pem"
+export NOMAD_CLIENT_CERT="{{ nomad_config_path | dirname }}/certs/client/{{ _nomad_certs['client'][nomad_datacenter]['cert_public_key']['filename'] }}"
+export NOMAD_CLIENT_KEY="{{ nomad_config_path | dirname }}/certs/client/{{ _nomad_certs['client'][nomad_datacenter]['cert_private_key']['filename'] }}"
