@@ -7,6 +7,11 @@ server {
 {% else %}
 client {
   enabled = true
+{% if ansible_facts['architecture'] == "aarch64" %}
+  node_class = "rpi"
+{% else %}
+  node_class = "host"
+{% endif %}
 }
 {% endif %}
 

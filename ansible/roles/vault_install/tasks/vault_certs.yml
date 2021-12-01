@@ -89,12 +89,12 @@
 
 - name: write out hashi ca
   ansible.builtin.copy:
-    content: "{{ _vault_ca['root']['pub'] }}"
+    content: "{{ _vault_ca['bundle']['pub'] }}"
     dest: "{{ vault_config_path | dirname }}/certs/hashi_ca.pem"
     owner: "{{ vault_user }}"
     group: "{{ vault_group }}"
     mode: 0440
-  when: _vault_ca['root'].keys()|length > 0
+  when: _vault_ca['bundle'].keys()|length > 0
   notify: "restart vault services"
   tags:
     - vault-certs

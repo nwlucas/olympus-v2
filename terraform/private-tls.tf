@@ -47,8 +47,8 @@ module "hashi_intermediate_ca" {
   ca_private_key_pem = module.hashi_ca.ca_private_key_pem
   ca_cert_pem        = module.hashi_ca.ca_cert_pem
 
-  cert_private_key_path = format("%s-connect-ca-cert.pem", var.hashi_datacenter)
-  cert_public_key_path  = format("%s-connect-ca-key.pem", var.hashi_datacenter)
+  cert_private_key_path = format("%s-connect-ca-key.pem", var.hashi_datacenter)
+  cert_public_key_path  = format("%s-connect-ca-cert.pem", var.hashi_datacenter)
 
   allowed_uses = [
     "cert_signing",
@@ -186,16 +186,16 @@ module "vault_client_cert" {
 
   common_name       = "vault-client"
   organization_name = var.organization_name
-  dns_names = [
-    "client.vault.service.consul",
+  dns_names = concat([
     "vault.service.consul",
     "vault-client.service.consul",
-    format("client.vault.service.%s.consul", var.hashi_datacenter),
-    format("client.vault.%s.consul", var.hashi_datacenter),
     format("vault-client.%s.consul", var.hashi_datacenter),
     format("vault-client.service.%s.consul", var.hashi_datacenter),
     "vault-client",
-  ]
+    ],
+    [for k, h in local.hashi_hosts : format("%s.%s", k, h.domain)]
+  )
+  ip_addresses       = flatten(concat([for k, v in data.dns_a_record_set.hosts : v.addrs], ["127.0.0.1"]))
   ca_key_algorithm   = module.hashi_intermediate_ca.cert_algorithm
   ca_private_key_pem = module.hashi_intermediate_ca.cert_key
   ca_cert_pem        = module.hashi_intermediate_ca.cert_pem
@@ -206,6 +206,7 @@ module "vault_client_cert" {
   allowed_uses = [
     "key_encipherment",
     "digital_signature",
+    "server_auth",
     "client_auth"
   ]
 }
@@ -221,17 +222,17 @@ module "nomad_client_cert" {
 
   common_name       = "nomad-client"
   organization_name = var.organization_name
-  dns_names = [
-    "client.nomad.service.consul",
+  dns_names = concat([
     "nomad.service.consul",
     "nomad-client.service.consul",
-    format("client.nomad.service.%s.consul", var.hashi_datacenter),
-    format("client.nomad.%s.consul", var.hashi_datacenter),
     format("nomad-client.%s.consul", var.hashi_datacenter),
     format("nomad-client.service.%s.consul", var.hashi_datacenter),
     "client.global.nomad",
     "nomad-client",
-  ]
+    ],
+    [for k, h in local.hashi_hosts : format("%s.%s", k, h.domain)]
+  )
+  ip_addresses       = flatten(concat([for k, v in data.dns_a_record_set.hosts : v.addrs], ["127.0.0.1"]))
   ca_key_algorithm   = module.hashi_intermediate_ca.cert_algorithm
   ca_private_key_pem = module.hashi_intermediate_ca.cert_key
   ca_cert_pem        = module.hashi_intermediate_ca.cert_pem
@@ -242,6 +243,7 @@ module "nomad_client_cert" {
   allowed_uses = [
     "key_encipherment",
     "digital_signature",
+    "server_auth",
     "client_auth"
   ]
 }
@@ -257,7 +259,7 @@ module "consul_client_cert" {
 
   common_name       = "consul-client"
   organization_name = var.organization_name
-  dns_names = [
+  dns_names = concat([
     "client.consul.service.consul",
     "consul.service.consul",
     "consul-client.service.consul",
@@ -266,7 +268,10 @@ module "consul_client_cert" {
     format("consul-client.%s.consul", var.hashi_datacenter),
     format("consul-client.service.%s.consul", var.hashi_datacenter),
     "consul-client",
-  ]
+    ],
+    [for k, h in local.hashi_hosts : format("%s.%s", k, h.domain)]
+  )
+  ip_addresses       = flatten(concat([for k, v in data.dns_a_record_set.hosts : v.addrs], ["127.0.0.1"]))
   ca_key_algorithm   = module.hashi_intermediate_ca.cert_algorithm
   ca_private_key_pem = module.hashi_intermediate_ca.cert_key
   ca_cert_pem        = module.hashi_intermediate_ca.cert_pem
@@ -277,6 +282,7 @@ module "consul_client_cert" {
   allowed_uses = [
     "key_encipherment",
     "digital_signature",
+    "server_auth",
     "client_auth"
   ]
 }

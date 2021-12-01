@@ -8,8 +8,8 @@ hashi_binary_dir: "/usr/local/bin"
 nomad_install_override: false
 
 nomad_version: "1.2.2"
-nomad_user: "nomad"
-nomad_group: "hashi"
+nomad_user: "{% if inventory_hostname in groups['nomad_servers'] %}nomad{% else %}root{% endif %}"
+nomad_group: "{% if inventory_hostname in groups['nomad_servers'] %}hashi{% else %}root{% endif %}"
 nomad_install_dependencies: ["unzip"]
 
 nomad_config_path: "/opt/nomad/nomad.hcl"

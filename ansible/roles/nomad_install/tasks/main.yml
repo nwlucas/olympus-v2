@@ -127,6 +127,7 @@
 - name: create nomad group
   ansible.builtin.group:
     name: "{{ nomad_group }}"
+  when: nomad_group != "root"
   tags:
     - nomad-config
     - nomad-certs
@@ -141,6 +142,7 @@
     comment: "nomad nologin user"
     home: "{{ nomad_config_path | dirname }}"
     state: present
+  when: nomad_user != "root"
   tags:
     - nomad-config
     - nomad-certs

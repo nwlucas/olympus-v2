@@ -164,7 +164,7 @@ resource "aws_s3_bucket_object" "cert_key" {
 resource "aws_s3_bucket_object" "cert_pem" {
   bucket  = var.aws_bucket
   key     = format("%s/%s", var.aws_key, var.cert_public_key_path)
-  content = format("%s%s", tls_locally_signed_cert.cert.cert_pem, var.ca_cert_pem)
+  content = tls_locally_signed_cert.cert.cert_pem
 }
 
 output "cert_algorithm" {
@@ -189,6 +189,6 @@ output "cert_private_key" {
 output "cert_public_key" {
   value = {
     filename = var.cert_public_key_path
-    cert     = format("%s%s", tls_locally_signed_cert.cert.cert_pem, var.ca_cert_pem)
+    cert     = tls_locally_signed_cert.cert.cert_pem
   }
 }

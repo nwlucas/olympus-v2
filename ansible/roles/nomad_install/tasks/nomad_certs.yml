@@ -89,12 +89,12 @@
 
 - name: write out hashi ca
   ansible.builtin.copy:
-    content: "{{ _nomad_ca['root']['pub'] }}"
+    content: "{{ _nomad_ca['bundle']['pub'] }}"
     dest: "{{ nomad_config_path | dirname }}/certs/hashi_ca.pem"
     owner: "{{ nomad_user }}"
     group: "{{ nomad_group }}"
     mode: 0440
-  when: _nomad_ca['root'].keys()|length > 0
+  when: _nomad_ca['bundle'].keys()|length > 0
   notify: restart nomad services
   tags:
     - nomad-certs

@@ -21,6 +21,9 @@ output "hashi_cas" {
       "pub" = module.hashi_intermediate_ca.cert_pem
       "prv" = module.hashi_intermediate_ca.cert_key
     }
+    "bundle" = {
+      "pub" = format("%s%s", module.hashi_intermediate_ca.cert_pem, module.hashi_ca.ca_cert_pem)
+    }
 
   }
 

@@ -89,12 +89,12 @@
 
 - name: write out hashi ca
   ansible.builtin.copy:
-    content: "{{ _consul_ca['root']['pub'] }}"
+    content: "{{ _consul_ca['bundle']['pub'] }}"
     dest: "{{ consul_config_path | dirname }}/certs/hashi_ca.pem"
     owner: "{{ consul_user }}"
     group: "{{ consul_group }}"
     mode: 0440
-  when: _consul_ca['root'].keys()|length > 0
+  when: _consul_ca['bundle'].keys()|length > 0
   notify: restart consul services
   tags:
     - consul-certs
