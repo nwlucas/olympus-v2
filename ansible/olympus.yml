@@ -26,6 +26,7 @@
       loop:
         - python3-pip
         - net-tools
+        - dmidecode
       tags:
         - always
 
