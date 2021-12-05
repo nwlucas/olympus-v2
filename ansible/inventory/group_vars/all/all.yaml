@@ -8,3 +8,19 @@ print_terraform_backend: false
 
 consul_datacenter: "{{ _olympus_v2['consul_hosts']['datacenter'] }}"
 nomad_datacenter: "{{ _olympus_v2['nomad_hosts']['datacenter'] }}"
+
+hostprep_install_dependencies:
+  - "cpu-checker"
+  - "qemu"
+  - "qemu-kvm"
+  - "libvirt-daemon"
+  - "libvirt-clients"
+  - "bridge-utils"
+  - "openjdk-17-jdk-headless"
+  - "podman"
+  - "slirp4netns"
+  - "fuse-overlayfs"
+
+nomad_drivers:
+  raw_exec: true
+  podman: true

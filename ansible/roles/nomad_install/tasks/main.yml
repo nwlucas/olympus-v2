@@ -184,6 +184,28 @@
     - nomad-config
     - nomad-certs
 
+- name: set nomad podman driver archive filename
+  ansible.builtin.set_fact:
+    _nomad_podman_archive: |
+      nomad-driver-podman_{{ nomad_podman_version }}_{{ ansible_facts['system']|lower }}_{%- if ansible_facts['architecture'] == 'aarch64' %}arm64{%- else %}amd64{%- endif %}.zip
+  when:
+    - inventory_hostname not in groups['nomad_servers']
+    - nomad_drivers['podman']
+  tags:
+    - skip_ansible_lint
+    - nomad-install
+
+- name: install podman driver
+  ansible.builtin.unarchive:
+    remote_src: true
+    src: "https://releases.hashicorp.com/nomad-driver-podman/{{ nomad_podman_version }}/{{ _nomad_podman_archive }}"
+    dest: "{{ nomad_config_path |dirname }}/plugins"
+  when:
+    - inventory_hostname not in groups['nomad_servers']
+    - nomad_drivers['podman']
+  tags:
+    - nomad-install
+
 - name: install nomad certs
   ansible.builtin.include_tasks: ./nomad_certs.yml
   when: (_nomad_certs is defined and _nomad_certs.keys()|length > 0)

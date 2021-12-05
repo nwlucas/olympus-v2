@@ -24,6 +24,9 @@ nomad_dirs:
   - dir: "{{ nomad_config_path | dirname }}/data"
     owner: "{{ nomad_user }}"
     group: "{{ nomad_group }}"
+  - dir: "{{ nomad_config_path | dirname }}/plugins"
+    owner: "{{ nomad_user }}"
+    group: "{{ nomad_group }}"
   - dir: "{{ nomad_config_path | dirname }}/certs"
     owner: "{{ nomad_user }}"
     group: "{{ nomad_group }}"
@@ -47,3 +50,5 @@ nomad_ports:
   http: 4646
   rpc: 4647
   serf: 4648
+
+nomad_podman_version: "0.3.0"

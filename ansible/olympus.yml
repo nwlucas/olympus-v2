@@ -54,6 +54,7 @@
     - name: set facts from backend info
       ansible.builtin.set_fact:
         _olympus_v2: "{{ olympus_v2['vars'] }}"
+      check_mode: false
       tags:
         - always
 
@@ -65,6 +66,7 @@
       when: print_terraform_backend
       delegate_to: localhost
       become: false
+      check_mode: false
       tags:
         - terraform_backend_info
 
@@ -72,6 +74,7 @@
       ansible.builtin.debug:
         var: olympus_v2
       when: terraform_backend_debug is defined and terraform_backend_debug
+      check_mode: false
       tags:
         - terraform_backend_info
 
@@ -114,6 +117,16 @@
         mode: 0644
       notify:
         - reload systemd
+
+    - name: install prerequisites
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        update_cache: true
+        autoremove: true
+        autoclean: true
+      loop: "{{ hostprep_install_dependencies | default([]) }}"
+      tags:
+        - install-host-prereqs
 
     - name: force all notified handlers to run at this point, not waiting for normal sync points
       meta: flush_handlers

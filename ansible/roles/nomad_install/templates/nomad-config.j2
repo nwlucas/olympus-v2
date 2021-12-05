@@ -5,6 +5,7 @@ server {
   encrypt                 = "{{ nomad_encrypt_token }}"
 }
 {% else %}
+plugin_dir = "{{ nomad_config_path | dirname }}/plugins"
 client {
   enabled = true
 {% if ansible_facts['architecture'] == "aarch64" %}
@@ -13,6 +14,24 @@ client {
   node_class = "host"
 {% endif %}
 }
+
+{% if inventory_hostname not in groups['nomad_servers'] and nomad_drivers['raw_exec'] %}
+plugin "raw_exec" {
+  config {
+    enabled = true
+  }
+}
+{% endif %}
+
+{% if inventory_hostname not in groups['nomad_servers'] and nomad_drivers['raw_exec'] %}
+plugin "nomad-driver-podman" {
+  config {
+    volumes {
+      enabled = true
+    }
+  }
+}
+{% endif %}
 {% endif %}
 
 tls {
