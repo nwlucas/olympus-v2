@@ -1,3 +1,17 @@
+droplet_specs = {
+  "generic" = {
+    size     = "s-1vcpu-1gb"
+    dns_zone = "nwlnexus.net"
+    region   = "nyc3"
+  },
+
+  "controller" = {
+    size     = "s-1vcpu-2gb"
+    dns_zone = "nwlnexus.net"
+    region   = "nyc3"
+  }
+}
+
 access_groups = {
   "olympus_group" = {
     email_includes = ["nigel.williamslucas@gmail.com", "nigel.williamslucas@pm.me"]
@@ -153,10 +167,10 @@ nc_project = {
   "environment" = "Production"
 }
 
-bastion_node = {
-  "prefix" = "bst"
-  "spec"   = "generic"
-}
+// bastion_node = {
+//   "prefix" = "bst"
+//   "spec"   = "generic"
+// }
 
 nc_node = {
   "prefix" = "nc"
@@ -238,41 +252,41 @@ nc_fw_rules_outbound = [
   },
 ]
 
-bastion_fw_inbound = [
-  {
-    protocol         = "tcp"
-    port_range       = "22"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  },
-  {
-    protocol         = "tcp"
-    port_range       = "9090"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  },
-  {
-    protocol         = "icmp"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  },
-]
+// bastion_fw_inbound = [
+//   {
+//     protocol         = "tcp"
+//     port_range       = "22"
+//     source_addresses = ["0.0.0.0/0", "::/0"]
+//   },
+//   {
+//     protocol         = "tcp"
+//     port_range       = "9090"
+//     source_addresses = ["0.0.0.0/0", "::/0"]
+//   },
+//   {
+//     protocol         = "icmp"
+//     source_addresses = ["0.0.0.0/0", "::/0"]
+//   },
+// ]
 
-bastion_fw_outbound = [
-  {
-    protocol              = "tcp"
-    port_range            = "80"
-    destination_addresses = ["0.0.0.0/0", "::/0"]
-  },
-  {
-    protocol              = "tcp"
-    port_range            = "443"
-    destination_addresses = ["0.0.0.0/0", "::/0"]
-  },
-  {
-    protocol              = "udp"
-    port_range            = "53"
-    destination_addresses = ["0.0.0.0/0", "::/0"]
-  },
-  {
-    protocol              = "icmp"
-    destination_addresses = ["0.0.0.0/0", "::/0"]
-  },
-]
+// bastion_fw_outbound = [
+//   {
+//     protocol              = "tcp"
+//     port_range            = "80"
+//     destination_addresses = ["0.0.0.0/0", "::/0"]
+//   },
+//   {
+//     protocol              = "tcp"
+//     port_range            = "443"
+//     destination_addresses = ["0.0.0.0/0", "::/0"]
+//   },
+//   {
+//     protocol              = "udp"
+//     port_range            = "53"
+//     destination_addresses = ["0.0.0.0/0", "::/0"]
+//   },
+//   {
+//     protocol              = "icmp"
+//     destination_addresses = ["0.0.0.0/0", "::/0"]
+//   },
+// ]

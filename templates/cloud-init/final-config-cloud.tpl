@@ -12,3 +12,5 @@ power_state:
   mode: reboot
   message: "Cloud-Init: Reboot"
   timeout: 600
+final_message: "The system is prepped, after $UPTIME seconds"
+output: {all: '| tee -a /var/log/cloud-init-output.log'}

@@ -5,7 +5,9 @@ merge_how:
 - name: dict
   settings: [no_replace, recurse_list]
 write_files:
-- content: dns_cloudflare_api_token = ${ cf_token }
+- content: |
+    dns_cloudflare_api_token = ${ cf_token }
+
   path: /opt/bootstrap/acme/cf_creds.ini
   owner: root:root
   permissions: '0600'

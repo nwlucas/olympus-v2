@@ -1,0 +1,374 @@
+locals {
+  nc_node = defaults(var.nc_node, {
+    prefix = "nc"
+    spec   = "generic"
+  })
+
+  nc_nodes_fqdn = [for n in random_id.nc_nodes : format("%s-%s.%s", lower(local.nc_node["prefix"]), lower(n.id), lower(local.droplet_specs["generic"].dns_zone))]
+}
+
+resource "random_id" "nc_nodes" {
+  count = var.node_count
+
+  byte_length = 8
+}
+
+module "do_consul_cert" {
+  source = "./modules/cert"
+
+  count = var.node_count
+
+  aws_bucket = var.AWS_BUCKET
+  aws_key    = "hashi/certs/consul/cluster/${local.nc_nodes_fqdn[count.index]}"
+
+  private_key_algorithm   = "ECDSA"
+  private_key_ecdsa_curve = "P384"
+
+  common_name       = local.nc_nodes_fqdn[count.index]
+  organization_name = var.organization_name
+  dns_names = [
+    local.nc_nodes_fqdn[count.index],
+    element(split(".", local.nc_nodes_fqdn[count.index]), 0),
+    "consul.service.consul",
+    format("server.%s.consul", var.hashi_datacenter),
+    "consul-server",
+    "localhost"
+  ]
+  ip_addresses       = flatten(["127.0.0.1"])
+  ca_key_algorithm   = module.hashi_intermediate_ca.cert_algorithm
+  ca_private_key_pem = module.hashi_intermediate_ca.cert_key
+  ca_cert_pem        = module.hashi_intermediate_ca.cert_pem
+
+  cert_private_key_path = format("consul_%s.key", local.nc_nodes_fqdn[count.index])
+  cert_public_key_path  = format("consul_%s.pem", local.nc_nodes_fqdn[count.index])
+
+  allowed_uses = [
+    "key_encipherment",
+    "digital_signature",
+    "server_auth",
+    "client_auth"
+  ]
+}
+
+module "do_consul_client_cert" {
+  source = "./modules/cert"
+
+  aws_bucket = var.AWS_BUCKET
+  aws_key    = "hashi/certs/consul/do/client"
+
+  private_key_algorithm   = "ECDSA"
+  private_key_ecdsa_curve = "P384"
+
+  common_name       = "consul-client"
+  organization_name = var.organization_name
+  dns_names = concat([
+    "client.consul.service.consul",
+    "consul.service.consul",
+    "consul-client.service.consul",
+    format("client.consul.service.%s.consul", var.hashi_datacenter),
+    format("client.consul.%s.consul", var.hashi_datacenter),
+    format("consul-client.%s.consul", var.hashi_datacenter),
+    format("consul-client.service.%s.consul", var.hashi_datacenter),
+    "consul-client",
+    ],
+    local.nc_nodes_fqdn
+  )
+  ip_addresses       = flatten(["127.0.0.1"])
+  ca_key_algorithm   = module.hashi_intermediate_ca.cert_algorithm
+  ca_private_key_pem = module.hashi_intermediate_ca.cert_key
+  ca_cert_pem        = module.hashi_intermediate_ca.cert_pem
+
+  cert_private_key_path = format("consul_%s_client_key.pem", var.hashi_datacenter)
+  cert_public_key_path  = format("consul_%s_client_crt.pem", var.hashi_datacenter)
+
+  allowed_uses = [
+    "key_encipherment",
+    "digital_signature",
+    "server_auth",
+    "client_auth"
+  ]
+}
+
+data "cloudinit_config" "nc_node" {
+  count = var.node_count
+
+  gzip          = false
+  base64_encode = false
+  part {
+    content_type = "text/cloud-config"
+    merge_type   = "list(append)+dict(no_replace,recurse_list)+str()"
+    filename     = "base.yaml"
+    content = templatefile(
+      "${path.module}/../templates/cloud-init/base-config-cloud.tpl", {
+        instance_fqdn    = local.nc_nodes_fqdn[count.index]
+        instance_domain  = lower(local.droplet_specs["generic"].dns_zone)
+        ssh_password     = var.SSH_PASSWORD
+        ssh_instance_key = tls_private_key.ssh_key.public_key_openssh
+      }
+    )
+  }
+  part {
+    content_type = "text/cloud-config"
+    merge_type   = "list(append)+dict(no_replace,recurse_list)+str()"
+    filename     = "certbot.yaml"
+    content = templatefile(
+      "${path.module}/../templates/cloud-init/install-certbot.tpl", {
+        instance_fqdn = local.nc_nodes_fqdn[count.index]
+        cf_token      = var.CF_API_TOKEN
+        le_email      = var.ACME_EMAIL
+      }
+    )
+  }
+  part {
+    content_type = "text/cloud-config"
+    merge_type   = "list(append)+dict(no_replace,recurse_list)+str()"
+    filename     = "cloudflared.yaml"
+    content = templatefile(
+      "${path.module}/../templates/cloud-init/install-cloudflared.tpl", {
+        instance_fqdn     = local.nc_nodes_fqdn[count.index]
+        cloudflared_path  = "/opt/cloudflared"
+        cloudflared_user  = "cloudflared"
+        cloudflared_group = "cloudflared"
+        cloudflared_config_file = templatefile(
+          "${path.module}/../templates/cloudflared/config.tpl", {
+            cloudflared_path = "/opt/cloudflared"
+            hostname         = format("ssh-%s", local.nc_nodes_fqdn[count.index])
+            tunnel_uuid      = cloudflare_argo_tunnel.do_tunnels[count.index].id
+          }
+        )
+        cloudflared_credentials_file = templatefile(
+          "${path.module}/../templates/cloudflared/credentials.tpl", {
+            account_id    = var.CF_ACCOUNT_ID
+            tunnel_secret = random_id.do_tunnel_secrets[count.index].b64_std
+            tunnel_name   = cloudflare_argo_tunnel.do_tunnels[count.index].name
+            tunnel_uuid   = cloudflare_argo_tunnel.do_tunnels[count.index].id
+          }
+        )
+      }
+    )
+  }
+  part {
+    content_type = "text/cloud-config"
+    merge_type   = "list(append)+dict(no_replace,recurse_list)+str()"
+    filename     = "consul.yaml"
+    content = templatefile(
+      "${path.module}/../templates/cloud-init/install-consul.tpl", {
+        instance_fqdn  = local.nc_nodes_fqdn[count.index]
+        consul_path    = "/opt/consul"
+        consul_user    = "consul"
+        consul_group   = "hashi"
+        datacenter     = var.hashi_datacenter
+        hashi_ca_cert  = module.hashi_ca.ca_cert_pem
+        hashi_int_cert = module.hashi_intermediate_ca
+        cluster_cert   = module.do_consul_cert[count.index]
+        client_cert    = module.do_consul_client_cert
+        consul_config = templatefile(
+          "${path.module}/../templates/consul/config.tpl", {
+            instance_fqdn = local.nc_nodes_fqdn[count.index]
+            node_name     = element(split(".", local.nc_nodes_fqdn[count.index]), 0)
+            datacenter    = var.hashi_datacenter
+            log_level     = "info"
+            consul_path   = "/opt/consul"
+            encrypt_token = random_id.consul_secret.b64_std
+            do_api_token  = var.DIGITALOCEAN_API_TOKEN
+            region        = local.droplet_specs["generic"].region
+            tag_name      = format("%s:consul-server", local.droplet_specs["generic"].region)
+          }
+        )
+      }
+    )
+  }
+  part {
+    content_type = "text/cloud-config"
+    merge_type   = "list(append)+dict(no_replace,recurse_list)+str()"
+    filename     = "provisioning.yaml"
+    content      = <<-EOT
+    #cloud-config
+    write_files:
+    - content: |
+        export NODE_NAME="${local.nc_nodes_fqdn[count.index]}"
+        export NODE_TYPE="NOMAD-CONSUL"
+        export DO_API_TOKEN="${var.DIGITALOCEAN_API_TOKEN}"
+
+      path: /etc/profile.d/provisioning.sh
+      owner: root:root
+      permissions: '0755'
+    EOT
+  }
+  part {
+    content_type = "text/cloud-config"
+    merge_type   = "list(append)+dict(no_replace,recurse_list)+str()"
+    filename     = "final.yaml"
+    content = templatefile(
+      "${path.module}/../templates/cloud-init/final-config-cloud.tpl", {
+      }
+    )
+  }
+}
+
+resource "digitalocean_droplet" "nc_nodes" {
+  count = var.node_count
+
+  image      = local.droplet_specs["generic"].image
+  name       = local.nc_nodes_fqdn[count.index]
+  region     = local.droplet_specs["generic"].region
+  size       = local.droplet_specs["generic"].size
+  backups    = true
+  ssh_keys   = [digitalocean_ssh_key.tf_ssh.fingerprint]
+  user_data  = data.cloudinit_config.nc_node[count.index].rendered
+  vpc_uuid   = digitalocean_vpc.nc_internal.id
+  monitoring = true
+  tags = [
+    "nomad-server",
+    "consul-server",
+    format("%s:consul-server", local.droplet_specs["generic"].region),
+    lower(local.droplet_specs["generic"].region),
+    format("%s-%s", lower(local.nc_node["prefix"]), lower(random_id.nc_nodes[count.index].id))
+  ]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "digitalocean_firewall" "nomad-consul" {
+  name = "fw-nomad-consul"
+
+  tags = [format("%s:consul-server", local.droplet_specs["generic"].region)]
+
+  #--------------------------------------------------------------------------#
+  # Internal VPC Rules. We have to let ourselves talk to each other          #
+  #--------------------------------------------------------------------------#
+  inbound_rule {
+    protocol         = "tcp"
+    port_range       = "22"
+    source_addresses = ["68.134.136.57"]
+  }
+
+  inbound_rule {
+    protocol         = "tcp"
+    port_range       = "1-65535"
+    source_addresses = [digitalocean_vpc.nc_internal.ip_range]
+  }
+
+  inbound_rule {
+    protocol         = "udp"
+    port_range       = "1-65535"
+    source_addresses = [digitalocean_vpc.nc_internal.ip_range]
+  }
+
+  inbound_rule {
+    protocol         = "icmp"
+    source_addresses = [digitalocean_vpc.nc_internal.ip_range]
+  }
+
+  outbound_rule {
+    protocol              = "udp"
+    port_range            = "1-65535"
+    destination_addresses = [digitalocean_vpc.nc_internal.ip_range]
+  }
+
+  outbound_rule {
+    protocol              = "tcp"
+    port_range            = "1-65535"
+    destination_addresses = [digitalocean_vpc.nc_internal.ip_range]
+  }
+
+  outbound_rule {
+    protocol              = "icmp"
+    destination_addresses = [digitalocean_vpc.nc_internal.ip_range]
+  }
+
+  # Allow Cloudflare Tunnel to establish
+  outbound_rule {
+    protocol              = "udp"
+    port_range            = "7844"
+    destination_addresses = flatten([for k, v in data.dns_a_record_set.cloudflare_tunnel_region : v.addrs])
+  }
+  outbound_rule {
+    protocol              = "tcp"
+    port_range            = "7844"
+    destination_addresses = flatten([for k, v in data.dns_a_record_set.cloudflare_tunnel_region : v.addrs])
+  }
+  outbound_rule {
+    protocol              = "tcp"
+    port_range            = "443"
+    destination_addresses = flatten([for k, v in data.dns_a_record_set.cloudflare_tunnel_api : v.addrs])
+  }
+  #--------------------------------------------------------------------------#
+  # Selective Inbound Traffic Rules                                           #
+  #--------------------------------------------------------------------------#
+  dynamic "inbound_rule" {
+    for_each = var.nc_fw_rules_inbound
+    content {
+      protocol         = inbound_rule.value["protocol"]
+      port_range       = inbound_rule.value["port_range"]
+      source_addresses = inbound_rule.value["source_addresses"]
+    }
+  }
+  #--------------------------------------------------------------------------#
+  # Selective Outbound Traffic Rules                                          #
+  #--------------------------------------------------------------------------#
+  dynamic "outbound_rule" {
+    for_each = var.nc_fw_rules_outbound
+    content {
+      protocol              = outbound_rule.value["protocol"]
+      port_range            = outbound_rule.value["port_range"]
+      destination_addresses = outbound_rule.value["destination_addresses"]
+    }
+  }
+}
+
+resource "cloudflare_record" "cf_nc_nodes_private" {
+  count = var.node_count
+
+  zone_id = data.cloudflare_zone.zones[local.droplet_specs[local.nc_node["spec"]].dns_zone].id
+  name    = format("%s-%s", lower(local.nc_node["prefix"]), lower(random_id.nc_nodes[count.index].id))
+  type    = "A"
+  value   = digitalocean_droplet.nc_nodes[count.index].ipv4_address_private
+}
+
+resource "cloudflare_record" "cf_nc_nodes_public" {
+  count = var.node_count
+
+  zone_id = data.cloudflare_zone.zones[local.droplet_specs[local.nc_node["spec"]].dns_zone].id
+  name    = format("%s-%s.pub", lower(local.nc_node["prefix"]), lower(random_id.nc_nodes[count.index].id))
+  type    = "A"
+  value   = digitalocean_droplet.nc_nodes[count.index].ipv4_address
+}
+
+resource "cloudflare_access_application" "do_access_apps_ssh" {
+  count = var.node_count
+
+  zone_id          = data.cloudflare_zone.zones[local.droplet_specs[local.nc_node["spec"]].dns_zone].id
+  name             = format("ssh-%s-%s", lower(local.nc_node["prefix"]), lower(random_id.nc_nodes[count.index].id))
+  domain           = format("ssh-%s-%s.%s", lower(local.nc_node["prefix"]), lower(random_id.nc_nodes[count.index].id), local.droplet_specs[local.nc_node["spec"]].dns_zone)
+  type             = "self_hosted"
+  session_duration = "1h"
+}
+
+resource "cloudflare_access_policy" "do_admin_policies_ssh" {
+  count = var.node_count
+
+  application_id = cloudflare_access_application.do_access_apps_ssh[count.index].id
+  zone_id        = cloudflare_access_application.do_access_apps_ssh[count.index].zone_id
+  name           = "Admin-Access"
+  precedence     = "1"
+  decision       = "allow"
+
+  include {
+    group = [
+      cloudflare_access_group.access_groups["olympus_group"].id
+    ]
+  }
+}
+
+resource "cloudflare_record" "do_apps_cnames_ssh" {
+  count = var.node_count
+
+  zone_id = cloudflare_access_application.do_access_apps_ssh[count.index].zone_id
+  type    = "CNAME"
+  name    = format("ssh-%s-%s", lower(local.nc_node["prefix"]), lower(random_id.nc_nodes[count.index].id))
+  value   = format("%s.cfargotunnel.com", cloudflare_argo_tunnel.do_tunnels[count.index].id)
+  proxied = true
+}

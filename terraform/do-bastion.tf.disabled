@@ -95,13 +95,14 @@ data "cloudinit_config" "bastion" {
 }
 
 resource "digitalocean_droplet" "bastion" {
-  image     = local.droplet_specs["generic"].image
-  name      = local.bastion_fqdn
-  region    = local.droplet_specs["generic"].region
-  size      = local.droplet_specs["generic"].size
-  ssh_keys  = [digitalocean_ssh_key.tf_ssh.fingerprint]
-  user_data = data.cloudinit_config.bastion.rendered
-  vpc_uuid  = digitalocean_vpc.nc_internal.id
+  image      = local.droplet_specs["generic"].image
+  name       = local.bastion_fqdn
+  region     = local.droplet_specs["generic"].region
+  size       = local.droplet_specs["generic"].size
+  ssh_keys   = [digitalocean_ssh_key.tf_ssh.fingerprint]
+  user_data  = data.cloudinit_config.bastion.rendered
+  vpc_uuid   = digitalocean_vpc.nc_internal.id
+  monitoring = true
   tags = [
     "bastion",
     lower(local.droplet_specs["generic"].region),
@@ -150,13 +151,9 @@ resource "digitalocean_firewall" "bastion" {
   }
 }
 
-module "cf_bastion" {
-  source = "git::https://gitlab.com/olympus-net/terraform_modules/cloudflare.git"
-
-  zone        = lower(local.droplet_specs["generic"].dns_zone)
-  record_type = "A"
-  record = {
-    "name"    = format("%s-%s", lower(local.bastion_node["prefix"]), local.droplet_specs["generic"].region)
-    "content" = digitalocean_droplet.bastion.ipv4_address
-  }
+resource "cloudflare_record" "cf_bastion" {
+  zone_id = data.cloudflare_zone.zones[local.droplet_specs[local.bastion_node["spec"]].dns_zone].id
+  name    = format("%s-%s", lower(local.bastion_node["prefix"]), local.droplet_specs[local.bastion_node["spec"]].region)
+  type    = "A"
+  value   = digitalocean_droplet.bastion.ipv4_address_private
 }

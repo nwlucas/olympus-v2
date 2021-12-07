@@ -1,12 +1,44 @@
 locals {
   droplet_specs = defaults(var.droplet_specs, {
-  image  = "ubuntu-20-04-x64"
-  region = "nyc3"
-  size   = "s-1vcpu-1gb"
+    image  = "ubuntu-21-04-x64"
+    region = "nyc3"
+    size   = "s-1vcpu-1gb"
   })
+
+  cf_zones = distinct(compact([for z in local.droplet_specs : z.dns_zone]))
 }
 
 data "cloudflare_ip_ranges" "cloudflare" {}
+
+data "dns_a_record_set" "cloudflare_tunnel_region" {
+  for_each = toset(["region1.argotunnel.com", "region2.argotunnel.com"])
+  host     = each.key
+}
+data "dns_a_record_set" "cloudflare_tunnel_api" {
+  for_each = toset(["api.cloudflare.com"])
+  host     = each.key
+}
+
+data "cloudflare_zone" "zones" {
+  for_each = toset(local.cf_zones)
+
+  name       = each.key
+  account_id = var.CF_ACCOUNT_ID
+}
+
+resource "random_id" "do_tunnel_secrets" {
+  count = var.node_count
+
+  byte_length = 35
+}
+
+resource "cloudflare_argo_tunnel" "do_tunnels" {
+  count = var.node_count
+
+  account_id = var.CF_ACCOUNT_ID
+  name       = "do-${local.nc_nodes_fqdn[count.index]}"
+  secret     = random_id.do_tunnel_secrets[count.index].b64_std
+}
 
 data "digitalocean_regions" "available" {
   filter {

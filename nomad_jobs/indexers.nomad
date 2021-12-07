@@ -52,6 +52,7 @@ job "indexer" {
       }
 
       service {
+        name = "radarr"
         tags = ["radarr"]
         port = "radarr"
 
@@ -92,6 +93,7 @@ job "indexer" {
       }
 
       service {
+        name = "sonarr"
         tags = ["sonarr"]
         port = "sonarr"
 
@@ -132,6 +134,7 @@ job "indexer" {
       }
 
       service {
+        name = "lidarr"
         tags = ["lidarr"]
         port = "lidarr"
 

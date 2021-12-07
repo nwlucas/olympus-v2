@@ -22,6 +22,8 @@ packages:
 - curl
 - gnupg
 - net-tools
+- jq
+- unzip
 ssh_authorized_keys:
 - ${ ssh_instance_key ~}
 users:
@@ -29,13 +31,16 @@ users:
   shell: /bin/bash
   gecos: Ubuntu
   sudo: ALL=(ALL) NOPASSWD:ALL
-  group: [adm, audio, cdrom, dialout, floppy, video, plugdev, dip, netdev, ddclient]
-  groups: sudo
+  groups: [sudo, adm, audio, cdrom, dialout, floppy, video, plugdev, dip, netdev, ddclient]
   ssh_authorized_keys:
   - ${ ssh_instance_key ~}
 write_files:
 - content: ""
   path: /opt/bootstrap/.cloudcreate
+  owner: root:root
+  permissions: '0644'
+- content: ""
+  path: /opt/bin/.cloudcreate
   owner: root:root
   permissions: '0644'
 - content: |
@@ -66,5 +71,3 @@ runcmd:
 - [systemctl, enable, --now, cockpit.socket]
 - [systemctl, stop, network-manager.service]
 - [systemctl, disable, network-manager.service]
-final_message: "The system is prepped, after $UPTIME seconds"
-output: {all: '| tee -a /var/log/cloud-init-output.log'}
