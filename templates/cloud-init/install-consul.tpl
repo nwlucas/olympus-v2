@@ -6,48 +6,6 @@ merge_how:
   settings: [no_replace, recurse_list]
 write_files:
 - content: |
-    ${indent(4,hashi_ca_cert)}
-  path: /opt/hashi/hashi_ca.pem
-  owner: root:root
-  permissions: '0440'
-
-- content: |
-    ${indent(4,hashi_int_cert.cert_pem)}
-  path: /opt/hashi/hashi_int_cert.pem
-  owner: root:root
-  permissions: '0440'
-
-- content: |
-    ${indent(4,hashi_int_cert.cert_key)}
-  path: /opt/hashi/hashi_int_key.pem
-  owner: root:root
-  permissions: '0440'
-
-- content: |
-    ${indent(4,cluster_cert.cert_public_key.cert)}
-  path: /opt/hashi/${ cluster_cert.cert_public_key.filename }
-  owner: root:root
-  permissions: '0440'
-
-- content: |
-    ${indent(4,cluster_cert.cert_private_key.cert)}
-  path: /opt/hashi/${ cluster_cert.cert_private_key.filename }
-  owner: root:root
-  permissions: '0440'
-
-- content: |
-    ${indent(4,client_cert.cert_private_key.cert)}
-  path: /opt/hashi/${ client_cert.cert_private_key.filename }
-  owner: root:root
-  permissions: '0440'
-
-- content: |
-    ${indent(4,client_cert.cert_public_key.cert)}
-  path: /opt/hashi/${ client_cert.cert_public_key.filename }
-  owner: root:root
-  permissions: '0440'
-
-- content: |
     ${indent(4,consul_config)}
   path: ${ consul_path }/server.hcl
   owner: root:root
@@ -55,15 +13,27 @@ write_files:
 
 - content: |
     [Unit]
-    ConditionFileNotEmpty=${ consul_path }/consul.hcl
+    Description="HashiCorp Consul - A service mesh solution"
+    Documentation=https://www.consul.io/
+    Requires=network-online.target
+    After=network-online.target
+    ConditionFileNotEmpty=${ consul_path }/server.hcl
 
     [Service]
     EnvironmentFile=-${ consul_path }/consul.env
     User=${ consul_user }
     Group=${ consul_group }
-    ExecStart=/usr/local/bin/consul agent -config-dir=${ consul_path }/
+    ExecStart=/usr/bin/consul agent -config-dir=${ consul_path }/
+    ExecReload=/bin/kill --signal HUP $MAINPID
+    KillMode=process
+    KillSignal=SIGTERM
+    Restart=on-failure
+    LimitNOFILE=65536
 
-  path: /etc/systemd/system/consul.service.d/00-override.conf
+    [Install]
+    WantedBy=multi-user.target
+
+  path: /etc/systemd/system/consul.service
   owner: root:root
   permissions: '0644'
 
@@ -177,3 +147,4 @@ runcmd:
 - [chown, "-R", "${ consul_user }:${ consul_group }", "${ consul_path }"]
 - [chown, "-R", "root:${ consul_group }", "/opt/hashi"]
 - [systemctl, enable, consul.service]
+- [systemctl, start, consul.service]

@@ -29,7 +29,7 @@ ui_config {
 
 bind_addr           = "{{ GetInterfaceIP \"eth1\" }}"
 advertise_addr      = "{{ GetInterfaceIP \"eth1\" }}"
-advertise_addr_wan  = "{{ GetPublicIP }}"
+advertise_addr_wan  = "{{ GetInterfaceIP \"eth1\" }}"
 
 addresses {
   grpc  = "127.0.0.1 {{ GetInterfaceIP \"eth1\" }}"
@@ -37,7 +37,6 @@ addresses {
   https = "127.0.0.1 {{ GetInterfaceIP \"eth1\" }}"
   dns   = "127.0.0.1 {{ GetInterfaceIP \"eth1\" }}"
 }
-{% endif %}
 
 ports {
   grpc  = 8502

@@ -93,27 +93,27 @@ output "cloudflare_ips" {
   value = flatten(data.cloudflare_ip_ranges.cloudflare.cidr_blocks)
 }
 
-output "nodes" {
-  value = { for node, v in digitalocean_droplet.nc_nodes : v.name => {
-    urn                  = v.urn
-    ipv4_address_public  = v.ipv4_address
-    ipv4_address_private = v.ipv4_address_private
-    tags                 = v.tags
-    }
-  }
-}
+# output "nodes" {
+#   value = { for node, v in digitalocean_droplet.nc_nodes : v.name => {
+#     urn                  = v.urn
+#     ipv4_address_public  = v.ipv4_address
+#     ipv4_address_private = v.ipv4_address_private
+#     tags                 = v.tags
+#     }
+#   }
+# }
 
-output "vpc" {
-  value = digitalocean_vpc.nc_internal.id
-}
+# output "vpc" {
+#   value = digitalocean_vpc.nc_internal.id
+# }
 
-output "project_homelab" {
-  value = digitalocean_project.homelab_nc_cluster.id
-}
+# output "project_homelab" {
+#   value = digitalocean_project.homelab_nc_cluster.id
+# }
 
-output "available_regions" {
-  value = data.digitalocean_regions.available.regions[*].slug
-}
+# output "available_regions" {
+#   value = data.digitalocean_regions.available.regions[*].slug
+# }
 
 output "cloudflare_tunnel_regions" {
   value = flatten([for k, v in data.dns_a_record_set.cloudflare_tunnel_region : v.addrs])

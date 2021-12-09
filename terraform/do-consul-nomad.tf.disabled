@@ -153,15 +153,11 @@ data "cloudinit_config" "nc_node" {
     filename     = "consul.yaml"
     content = templatefile(
       "${path.module}/../templates/cloud-init/install-consul.tpl", {
-        instance_fqdn  = local.nc_nodes_fqdn[count.index]
-        consul_path    = "/opt/consul"
-        consul_user    = "consul"
-        consul_group   = "hashi"
-        datacenter     = var.hashi_datacenter
-        hashi_ca_cert  = module.hashi_ca.ca_cert_pem
-        hashi_int_cert = module.hashi_intermediate_ca
-        cluster_cert   = module.do_consul_cert[count.index]
-        client_cert    = module.do_consul_client_cert
+        instance_fqdn = local.nc_nodes_fqdn[count.index]
+        consul_path   = "/opt/consul"
+        consul_user   = "consul"
+        consul_group  = "hashi"
+        datacenter    = var.hashi_datacenter
         consul_config = templatefile(
           "${path.module}/../templates/consul/config.tpl", {
             instance_fqdn = local.nc_nodes_fqdn[count.index]

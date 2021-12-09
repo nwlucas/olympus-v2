@@ -31,6 +31,16 @@ locals {
   ]
 }
 
+data "cloudflare_ip_ranges" "cloudflare" {}
+
+data "dns_a_record_set" "cloudflare_tunnel_region" {
+  for_each = toset(["region1.argotunnel.com", "region2.argotunnel.com"])
+  host     = each.key
+}
+data "dns_a_record_set" "cloudflare_tunnel_api" {
+  for_each = toset(["api.cloudflare.com"])
+  host     = each.key
+}
 data "cloudflare_zone" "app_zone" {
   for_each = toset(distinct(compact([for i, app in local.cf_apps : app.domain])))
 
