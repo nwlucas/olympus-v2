@@ -1,4 +1,4 @@
-job "downloaders" {
+job "htpc-collectors" {
   datacenters = ["olympus"]
   type = "service"
 
@@ -12,13 +12,10 @@ job "downloaders" {
     value = true
   }
 
-  group "htpc" {
-    count = 3
-
+  group "collector-radarr" {
     network {
-      port "radarr" { to = "7878" }
-      port "sonarr" { to = "8989" }
-      port "lidarr" { to = "8686" }
+      // mode = "bridge"
+      port "radarr" { static = "7878" }
     }
 
     restart {
@@ -29,7 +26,7 @@ job "downloaders" {
     }
 
     update {
-      max_parallel      = 3
+      max_parallel      = 1
       health_check      = "checks"
       min_healthy_time  = "10s"
       healthy_deadline  = "5m"
@@ -41,7 +38,7 @@ job "downloaders" {
     task "radarr-container" {
       driver = "podman"
       config {
-        image         = "docker://linuxserver/radarr:latest"
+        image         = "quay.io/linuxserver.io/radarr"
         network_mode  = "bridge"
         ports         = ["radarr"]
         labels = {
@@ -52,8 +49,10 @@ job "downloaders" {
       }
 
       service {
-        tags = ["radarr"]
-        port = "radarr"
+        name          = "radarr"
+        tags          = ["radarr"]
+        port          = "radarr"
+        address_mode  = "host"
 
         meta {
           meta = "radarr"
@@ -78,10 +77,35 @@ job "downloaders" {
         max_file_size = 10
       }
     }
+  }
+
+  group "collector-sonarr" {
+    network {
+      // mode = "bridge"
+      port "sonarr" { static = "8989" }
+    }
+
+    restart {
+      attempts  = 3
+      delay     = "30s"
+      interval  = "5m"
+      mode      = "fail"
+    }
+
+    update {
+      max_parallel      = 1
+      health_check      = "checks"
+      min_healthy_time  = "10s"
+      healthy_deadline  = "5m"
+      auto_revert       = true
+      canary            = 0
+      stagger           = "30s"
+    }
+
     task "sonarr-container" {
       driver = "podman"
       config {
-        image         = "docker://linuxserver/sonarr:latest"
+        image         = "quay.io/linuxserver.io/sonarr"
         network_mode  = "bridge"
         ports         = ["sonarr"]
         labels = {
@@ -92,6 +116,7 @@ job "downloaders" {
       }
 
       service {
+        name = "sonarr"
         tags = ["sonarr"]
         port = "sonarr"
 
@@ -118,10 +143,35 @@ job "downloaders" {
         max_file_size = 10
       }
     }
+  }
+
+  group "collector-lidarr" {
+    network {
+      // mode = "bridge"
+      port "lidarr" { static = "8686" }
+    }
+
+    restart {
+      attempts  = 3
+      delay     = "30s"
+      interval  = "5m"
+      mode      = "fail"
+    }
+
+    update {
+      max_parallel      = 1
+      health_check      = "checks"
+      min_healthy_time  = "10s"
+      healthy_deadline  = "5m"
+      auto_revert       = true
+      canary            = 0
+      stagger           = "30s"
+    }
+
     task "lidarr-container" {
       driver = "podman"
       config {
-        image         = "docker://linuxserver/lidarr:latest"
+        image         = "quay.io/linuxserver.io/lidarr"
         network_mode  = "bridge"
         ports         = ["lidarr"]
         labels = {
@@ -132,6 +182,7 @@ job "downloaders" {
       }
 
       service {
+        name = "lidarr"
         tags = ["lidarr"]
         port = "lidarr"
 

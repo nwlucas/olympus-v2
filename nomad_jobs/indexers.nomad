@@ -1,4 +1,4 @@
-job "indexer" {
+job "htpc-indexers" {
   datacenters = ["olympus"]
   type = "service"
 
@@ -12,13 +12,9 @@ job "indexer" {
     value = true
   }
 
-  group "htpc-collectors" {
-    count = 3
-
+  group "indexer-jackett" {
     network {
-      port "radarr" { to = "7878" }
-      port "sonarr" { to = "8989" }
-      port "lidarr" { to = "8686" }
+      port "jackett" { static = "9117" }
     }
 
     restart {
@@ -29,7 +25,7 @@ job "indexer" {
     }
 
     update {
-      max_parallel      = 3
+      max_parallel      = 1
       health_check      = "checks"
       min_healthy_time  = "10s"
       healthy_deadline  = "5m"
@@ -38,31 +34,32 @@ job "indexer" {
       stagger           = "30s"
     }
 
-    task "radarr-container" {
+    task "jackett-container" {
       driver = "podman"
       config {
-        image         = "docker://linuxserver/radarr:latest"
+        image         = "quay.io/linuxserver.io/jackett"
         network_mode  = "bridge"
-        ports         = ["radarr"]
+        ports         = ["jackett"]
         labels = {
           "nomad"         = "job"
           "htpc"          = "true"
-          "media-server"  = "radarr"
+          "media-server"  = "jackett"
         }
       }
 
       service {
-        name = "radarr"
-        tags = ["radarr"]
-        port = "radarr"
+        name          = "jackett"
+        tags          = ["jackett"]
+        port          = "jackett"
+        address_mode  = "host"
 
         meta {
-          meta = "radarr"
+          meta = "jackett"
         }
 
         check {
           type      = "http"
-          port      = "radarr"
+          port      = "jackett"
           path      = "/"
           interval  = "5s"
           timeout   = "10s"
@@ -70,8 +67,8 @@ job "indexer" {
       }
 
       resources {
-        cpu         = 500
-        memory      = 500
+        cpu         = 1000
+        memory      = 1000
       }
 
       logs {
@@ -79,72 +76,54 @@ job "indexer" {
         max_file_size = 10
       }
     }
-    task "sonarr-container" {
-      driver = "podman"
-      config {
-        image         = "docker://linuxserver/sonarr:latest"
-        network_mode  = "bridge"
-        ports         = ["sonarr"]
-        labels = {
-          "nomad"         = "job"
-          "htpc"          = "true"
-          "media-server"  = "sonarr"
-        }
-      }
-
-      service {
-        name = "sonarr"
-        tags = ["sonarr"]
-        port = "sonarr"
-
-        meta {
-          meta = "sonarr"
-        }
-
-        check {
-          type      = "http"
-          port      = "sonarr"
-          path      = "/"
-          interval  = "5s"
-          timeout   = "10s"
-        }
-      }
-
-      resources {
-        cpu         = 500
-        memory      = 500
-      }
-
-      logs {
-        max_files     = 3
-        max_file_size = 10
-      }
+  }
+  group "indexer-hydra" {
+    network {
+      port "hydra2" { static = "5076" }
     }
-    task "lidarr-container" {
+
+    restart {
+      attempts  = 3
+      delay     = "30s"
+      interval  = "5m"
+      mode      = "fail"
+    }
+
+    update {
+      max_parallel      = 1
+      health_check      = "checks"
+      min_healthy_time  = "10s"
+      healthy_deadline  = "5m"
+      auto_revert       = true
+      canary            = 0
+      stagger           = "30s"
+    }
+
+    task "hydra-container" {
       driver = "podman"
       config {
-        image         = "docker://linuxserver/lidarr:latest"
+        image         = "quay.io/linuxserver.io/nzbhydra2"
         network_mode  = "bridge"
-        ports         = ["lidarr"]
+        ports         = ["hydra2"]
         labels = {
           "nomad"         = "job"
           "htpc"          = "true"
-          "media-server"  = "lidarr"
+          "media-server"  = "hydra"
         }
       }
 
       service {
-        name = "lidarr"
-        tags = ["lidarr"]
-        port = "lidarr"
+        name = "hydra"
+        tags = ["hydra"]
+        port = "hydra2"
 
         meta {
-          meta = "lidarr"
+          meta = "hydra"
         }
 
         check {
           type      = "http"
-          port      = "lidarr"
+          port      = "hydra2"
           path      = "/"
           interval  = "5s"
           timeout   = "10s"
@@ -152,8 +131,8 @@ job "indexer" {
       }
 
       resources {
-        cpu         = 500
-        memory      = 500
+        cpu         = 1000
+        memory      = 1000
       }
 
       logs {
