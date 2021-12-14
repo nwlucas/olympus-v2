@@ -48,6 +48,10 @@ job "htpc-collectors" {
         }
       }
 
+      env{
+        UID = "998"
+      }
+
       service {
         name          = "radarr"
         tags          = ["radarr"]

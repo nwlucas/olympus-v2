@@ -116,6 +116,7 @@ job "htpc-indexers" {
         name = "hydra"
         tags = ["hydra"]
         port = "hydra2"
+        address_mode = "host"
 
         meta {
           meta = "hydra"
