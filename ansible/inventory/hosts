@@ -1,11 +1,11 @@
 [nomad_servers]
-rpi-[01:03].nwlnexus.net
+rpi-[01:05].nwlnexus.net
 
 [vault_servers]
 rpi-[01:03].nwlnexus.net
 
 [consul_servers]
-rpi-[01:03].nwlnexus.net
+rpi-[01:05].nwlnexus.net
 
 [ubnt_servers]
 rpi-06.nwlnexus.net
@@ -14,8 +14,9 @@ rpi-06.nwlnexus.net
 hades.nwlnexus.net
 
 [app_servers]
-rpi-[04:05].nwlnexus.net
+rpi-06.nwlnexus.net
 janus-[01:02].nwlnexus.net
+hades.nwlnexus.net
 
 [dhcp_server]
 hades.nwlnexus.net

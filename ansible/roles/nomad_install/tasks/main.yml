@@ -206,6 +206,28 @@
   tags:
     - nomad-install
 
+- name: set nomad containerd driver archive filename
+  ansible.builtin.set_fact:
+    _nomad_containerd_archive: |
+      containerd-driver{%- if ansible_facts['architecture'] == 'aarch64' %}-arm64{%- endif %}
+  when:
+    - inventory_hostname not in groups['nomad_servers']
+    - nomad_drivers['containerd']
+  tags:
+    - skip_ansible_lint
+    - nomad-install
+
+- name: install containerd driver
+  ansible.builtin.get_url:
+    url: "https://github.com/Roblox/nomad-driver-containerd/releases/download/v{{ nomad_containerd_version }}/{{ _nomad_containerd_archive }}"
+    dest: "{{ nomad_config_path |dirname }}/plugins/containerd-driver"
+    mode: "0755"
+  when:
+    - inventory_hostname not in groups['nomad_servers']
+    - nomad_drivers['containerd']
+  tags:
+    - nomad-install
+
 - name: install nomad certs
   ansible.builtin.include_tasks: ./nomad_certs.yml
   when: (_nomad_certs is defined and _nomad_certs.keys()|length > 0)

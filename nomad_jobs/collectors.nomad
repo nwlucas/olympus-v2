@@ -36,7 +36,7 @@ job "htpc-collectors" {
     }
 
     task "radarr-container" {
-      driver = "podman"
+      driver = "containerd-driver"
       config {
         image         = "quay.io/linuxserver.io/radarr"
         network_mode  = "bridge"
@@ -45,6 +45,7 @@ job "htpc-collectors" {
           "nomad"         = "job"
           "htpc"          = "true"
           "media-server"  = "radarr"
+          "type"          = "collector"
         }
       }
 
@@ -107,7 +108,7 @@ job "htpc-collectors" {
     }
 
     task "sonarr-container" {
-      driver = "podman"
+      driver = "containerd-driver"
       config {
         image         = "quay.io/linuxserver.io/sonarr"
         network_mode  = "bridge"
@@ -173,7 +174,7 @@ job "htpc-collectors" {
     }
 
     task "lidarr-container" {
-      driver = "podman"
+      driver = "containerd-driver"
       config {
         image         = "quay.io/linuxserver.io/lidarr"
         network_mode  = "bridge"

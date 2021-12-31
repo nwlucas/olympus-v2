@@ -18,9 +18,11 @@ hostprep_install_dependencies:
   - "bridge-utils"
   - "openjdk-17-jdk-headless"
   - "podman"
+  - "containerd"
   - "slirp4netns"
   - "fuse-overlayfs"
 
 nomad_drivers:
   raw_exec: true
   podman: true
+  containerd: true

@@ -148,12 +148,18 @@ hashi_hosts = {
   "rpi-02" = {
     domain     = "nwlnexus.net"
     datacenter = "olympus"
-
   },
   "rpi-03" = {
     domain     = "nwlnexus.net"
     datacenter = "olympus"
-
+  },
+  "rpi-04" = {
+    domain     = "nwlnexus.net"
+    datacenter = "olympus"
+  },
+  "rpi-05" = {
+    domain     = "nwlnexus.net"
+    datacenter = "olympus"
   }
 }
 hashi_datacenter = "olympus"

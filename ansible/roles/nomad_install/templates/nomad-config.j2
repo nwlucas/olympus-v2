@@ -3,6 +3,17 @@ server {
   enabled                 = true
   bootstrap_expect        = {{ groups['nomad_servers']|length }}
   encrypt                 = "{{ nomad_encrypt_token }}"
+
+  default_scheduler_config {
+    scheduler_algorithm = "spread"
+    memory_oversubscription_enabled = true
+
+    preemption_config {
+      batch_scheduler_enabled   = true
+      system_scheduler_enabled  = true
+      service_scheduler_enabled = true
+    }
+  }
 }
 {% else %}
 plugin_dir = "{{ nomad_config_path | dirname }}/plugins"
@@ -23,7 +34,17 @@ plugin "raw_exec" {
 }
 {% endif %}
 
-{% if inventory_hostname not in groups['nomad_servers'] and nomad_drivers['raw_exec'] %}
+{% if inventory_hostname not in groups['nomad_servers'] and nomad_drivers['containerd'] %}
+plugin "containerd-driver" {
+  config {
+    enabled = true
+    containerd_runtime = "io.containerd.runc.v2"
+    stats_interval = "5s"
+  }
+}
+{% endif %}
+
+{% if inventory_hostname not in groups['nomad_servers'] and nomad_drivers['podman'] %}
 plugin "nomad-driver-podman" {
   config {
     volumes {
