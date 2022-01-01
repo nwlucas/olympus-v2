@@ -26,3 +26,7 @@ nomad_drivers:
   raw_exec: true
   podman: true
   containerd: true
+
+cni:
+  url: "https://github.com/containernetworking/plugins/releases/download/"
+  version: "1.0.1"

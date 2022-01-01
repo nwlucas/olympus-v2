@@ -4,7 +4,7 @@ job "htpc-collectors" {
 
   constraint {
     attribute = "${node.class}"
-    value     = "rpi"
+    value     = "host"
   }
 
   constraint {
@@ -39,14 +39,7 @@ job "htpc-collectors" {
       driver = "containerd-driver"
       config {
         image         = "quay.io/linuxserver.io/radarr"
-        network_mode  = "bridge"
         ports         = ["radarr"]
-        labels = {
-          "nomad"         = "job"
-          "htpc"          = "true"
-          "media-server"  = "radarr"
-          "type"          = "collector"
-        }
       }
 
       env{
@@ -73,8 +66,8 @@ job "htpc-collectors" {
       }
 
       resources {
-        cpu         = 1000
-        memory      = 1000
+        cpu         = 500
+        memory      = 256
       }
 
       logs {
@@ -111,13 +104,7 @@ job "htpc-collectors" {
       driver = "containerd-driver"
       config {
         image         = "quay.io/linuxserver.io/sonarr"
-        network_mode  = "bridge"
         ports         = ["sonarr"]
-        labels = {
-          "nomad"         = "job"
-          "htpc"          = "true"
-          "media-server"  = "sonarr"
-        }
       }
 
       service {
@@ -139,8 +126,8 @@ job "htpc-collectors" {
       }
 
       resources {
-        cpu         = 1000
-        memory      = 1000
+        cpu         = 500
+        memory      = 256
       }
 
       logs {
@@ -177,13 +164,7 @@ job "htpc-collectors" {
       driver = "containerd-driver"
       config {
         image         = "quay.io/linuxserver.io/lidarr"
-        network_mode  = "bridge"
         ports         = ["lidarr"]
-        labels = {
-          "nomad"         = "job"
-          "htpc"          = "true"
-          "media-server"  = "lidarr"
-        }
       }
 
       service {
@@ -205,8 +186,8 @@ job "htpc-collectors" {
       }
 
       resources {
-        cpu         = 1000
-        memory      = 1000
+        cpu         = 500
+        memory      = 256
       }
 
       logs {

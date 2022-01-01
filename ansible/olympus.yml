@@ -118,6 +118,35 @@
       notify:
         - reload systemd
 
+    - name: place CNI plugins
+      block:
+        - name: make CNI directories
+          ansible.builtin.file:
+            path: "{{ item.dir }}"
+            owner: "{{ item.owner }}"
+            group: "{{ item.group }}"
+            mode: "{{ item.mode }}"
+            state: directory
+          loop:
+            - dir: "/opt/cni/bin"
+              owner: "root"
+              group: "root"
+              mode: "0755"
+            - dir: "/etc/cni/net.d"
+              owner: "root"
+              group: "root"
+              mode: "0755"
+
+        - name: get and extract CNI binaries
+          ansible.builtin.unarchive:
+            remote_src: true
+            src: "{{ cni['url'] }}v{{ cni['version'] }}/cni-plugins-{{ ansible_facts['system']|lower }}-{%- if ansible_facts['architecture'] == 'aarch64' %}arm64{%- else %}amd64{%- endif %}-v{{ cni['version'] }}.tgz"
+            dest: "/opt/cni/bin"
+          tags:
+            - skip_ansible_lint
+      tags:
+        - install-cni
+
     - name: install prerequisites
       ansible.builtin.apt:
         name: "{{ item }}"
