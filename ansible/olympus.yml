@@ -47,6 +47,7 @@
         aws_region: "{{ aws_region }}"
       become: false
       register: "olympus_v2"
+      check_mode: false
       tags:
         - always
         - terraform_backend_info
@@ -128,6 +129,10 @@
             mode: "{{ item.mode }}"
             state: directory
           loop:
+            - dir: "/opt/cni"
+              owner: "root"
+              group: "root"
+              mode: "0755"
             - dir: "/opt/cni/bin"
               owner: "root"
               group: "root"
@@ -142,9 +147,93 @@
             remote_src: true
             src: "{{ cni['url'] }}v{{ cni['version'] }}/cni-plugins-{{ ansible_facts['system']|lower }}-{%- if ansible_facts['architecture'] == 'aarch64' %}arm64{%- else %}amd64{%- endif %}-v{{ cni['version'] }}.tgz"
             dest: "/opt/cni/bin"
+            mode: "0755"
           tags:
             - skip_ansible_lint
+      when:
+        - nomad_drivers['podman'] or nomad_drivers['containerd']
       tags:
+        - install-cni
+        - install-podman
+        - install-containerd
+
+    - name: install/uninstall containerd
+      block:
+        - name: install containerd
+          ansible.builtin.apt:
+            name: "containerd"
+            state: present
+            update_cache: true
+            cache_valid_time: 3600
+            autoremove: true
+            autoclean: true
+          register: apt_action
+          retries: 100
+          until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+          when:
+            - nomad_drivers['containerd']
+            - inventory_hostname not in groups['nomad_servers']
+
+        - name: uninstall containerd
+          ansible.builtin.apt:
+            name: "containerd"
+            state: absent
+          register: apt_action
+          retries: 100
+          until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+          when:
+            - not nomad_drivers['containerd']
+            - inventory_hostname not in groups['nomad_servers']
+
+        - name: install podman
+          ansible.builtin.apt:
+            name: "podman"
+            state: present
+            update_cache: true
+            cache_valid_time: 3600
+            autoremove: true
+            autoclean: true
+          register: apt_action
+          retries: 100
+          until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+          when:
+            - nomad_drivers['podman']
+            - inventory_hostname not in groups['nomad_servers']
+
+        - name: uninstall podman
+          ansible.builtin.apt:
+            name: "podman"
+            state: absent
+          register: apt_action
+          retries: 100
+          until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+          when:
+            - not nomad_drivers['podman']
+            - inventory_hostname not in groups['nomad_servers']
+
+        - name: detect cni conf _cni_cnf_files
+          ansible.builtin.find:
+            paths: "/etc/cni/net.d"
+          register: _cni_cnf_files
+
+        - name: print out detected _cni_cnf_files
+          ansible.builtin.debug:
+            var: item
+          loop: "{{ _cni_cnf_files |  community.general.json_query('files[*].path') | list }}"
+
+        - name: check for podman network default file.
+          ansible.builtin.stat:
+            path: "/etc/cni/net.d/87-podman-ptp.conflist"
+          register: _podman_default
+
+        - name: remove podman default file if found
+          ansible.builtin.file:
+            path: "/etc/cni/net.d/87-podman-ptp.conflist"
+            state: absent
+          when: _podman_default.stat.exists
+      tags:
+        - install-containerd
+        - install-podman
         - install-cni
 
     - name: install prerequisites

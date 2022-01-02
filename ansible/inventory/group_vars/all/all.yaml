@@ -17,14 +17,12 @@ hostprep_install_dependencies:
   - "libvirt-clients"
   - "bridge-utils"
   - "openjdk-17-jdk-headless"
-  - "podman"
-  - "containerd"
   - "slirp4netns"
   - "fuse-overlayfs"
 
 nomad_drivers:
   raw_exec: true
-  podman: true
+  podman: false
   containerd: true
 
 cni:

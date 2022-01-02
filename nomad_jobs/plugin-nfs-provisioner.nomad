@@ -2,9 +2,14 @@ job "plugin-nfs-provisioner" {
   datacenters = ["olympus"]
   type = "system"
 
+  constraint {
+    attribute = "${node.class}"
+    value     = "host"
+  }
+
   group "controller" {
     task "plugin" {
-      driver = "podman"
+      driver = "containerd-driver"
 
       env {
         NFS_SERVER        = "192.168.251.8"
@@ -13,8 +18,7 @@ job "plugin-nfs-provisioner" {
       }
 
       config {
-        image         = "quay.io/external_storage/nfs-client-provisioner-arm"
-        network_mode  = "bridge"
+        image         = "quay.io/external_storage/nfs-client-provisioner:latest"
 
         args = [
           "-v=5"

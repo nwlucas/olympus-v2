@@ -1,0 +1,35 @@
+{
+  "cniVersion": "1.0.0",
+  "name": "olympusnet",
+  "plugins": [
+    {
+      "type": "bridge",
+      "bridge": "cni0",
+
+      "ipam": {
+        "type": "host-local",
+        "subnet": "10.1.0.0/16",
+        "gateway": "10.1.0.1",
+        "routes": [
+            {"dst": "0.0.0.0/0"}
+        ]
+      },
+      "dns": {
+        "nameservers": [ "10.1.0.1" ]
+      }
+    },
+    {
+      "type": "tuning",
+      "capabilities": {
+        "mac": true
+      },
+      "sysctl": {
+        "net.core.somaxconn": "500"
+      }
+    },
+    {
+        "type": "portmap",
+        "capabilities": {"portMappings": true}
+    }
+  ]
+}
