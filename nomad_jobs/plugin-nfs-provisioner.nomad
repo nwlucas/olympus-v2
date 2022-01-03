@@ -8,8 +8,12 @@ job "plugin-nfs-provisioner" {
   }
 
   group "controller" {
+    network {
+      mode = "cni/olympus-bridge"
+    }
+
     task "plugin" {
-      driver = "containerd-driver"
+      driver = "podman"
 
       env {
         NFS_SERVER        = "192.168.251.8"
@@ -18,7 +22,7 @@ job "plugin-nfs-provisioner" {
       }
 
       config {
-        image         = "quay.io/external_storage/nfs-client-provisioner:latest"
+        image         = "quay.io/external_storage/nfs-client-provisioner:v2.0.1"
 
         args = [
           "-v=5"

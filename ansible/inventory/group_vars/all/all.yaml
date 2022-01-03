@@ -22,7 +22,7 @@ hostprep_install_dependencies:
 
 nomad_drivers:
   raw_exec: true
-  podman: false
+  podman: true
   containerd: true
 
 cni:
