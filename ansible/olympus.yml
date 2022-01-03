@@ -87,6 +87,18 @@
     - name: import handlers
       ansible.builtin.import_tasks: ./handlers/main.yml
   pre_tasks:
+    - name: set _arch fact
+      ansible.builtin.set_fact:
+        _arch: "{%- if ansible_facts['architecture'] == 'aarch64' %}arm64{%- else %}amd64{%- endif %}"
+      tags:
+        - always
+
+    - name: set _system fact
+      ansible.builtin.set_fact:
+        _system: "{{ ansible_facts['system']|lower }}"
+      tags:
+        - always
+
     - name: add authorized keys
       ansible.posix.authorized_key:
         user: "{{ item }}"
@@ -145,7 +157,7 @@
         - name: get and extract CNI binaries
           ansible.builtin.unarchive:
             remote_src: true
-            src: "{{ cni['url'] }}v{{ cni['version'] }}/cni-plugins-{{ ansible_facts['system']|lower }}-{%- if ansible_facts['architecture'] == 'aarch64' %}arm64{%- else %}amd64{%- endif %}-v{{ cni['version'] }}.tgz"
+            src: "{{ cni['url'] }}v{{ cni['version'] }}/cni-plugins-{{ _system }}-{{ _arch }}-v{{ cni['version'] }}.tgz"
             dest: "/opt/cni/bin"
             mode: "0755"
           tags:
@@ -231,6 +243,13 @@
             path: "/etc/cni/net.d/87-podman-ptp.conflist"
             state: absent
           when: _podman_default.stat.exists
+
+        - name: place templated CNI configuration files
+          ansible.builtin.copy:
+            src: "{{ item }}"
+            dest: "/etc/cni/net.d/{{ item | basename }}"
+            mode: "0644"
+          loop: "{{ lookup('fileglob', './files/cni/*.conflist', wantlist=True) }}"
       tags:
         - install-containerd
         - install-podman

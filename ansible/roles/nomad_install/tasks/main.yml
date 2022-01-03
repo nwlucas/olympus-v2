@@ -8,6 +8,22 @@
     - nomad-config
     - nomad-certs
 
+- name: set _arch fact
+  ansible.builtin.set_fact:
+    _arch: "{%- if ansible_facts['architecture'] == 'aarch64' %}arm64{%- else %}amd64{%- endif %}"
+  tags:
+    - nomad-install
+    - nomad-config
+    - nomad-certs
+
+- name: set _system fact
+  ansible.builtin.set_fact:
+    _system: "{{ ansible_facts['system']|lower }}"
+  tags:
+    - nomad-install
+    - nomad-config
+    - nomad-certs
+
 - name: test for binary
   ansible.builtin.stat:
     path: "{{ hashi_binary_dir }}/nomad"
@@ -187,7 +203,7 @@
 - name: set nomad podman driver archive filename
   ansible.builtin.set_fact:
     _nomad_podman_archive: |
-      nomad-driver-podman_{{ nomad_podman_version }}_{{ ansible_facts['system']|lower }}_{%- if ansible_facts['architecture'] == 'aarch64' %}arm64{%- else %}amd64{%- endif %}.zip
+      nomad-driver-podman_{{ nomad_podman_version }}_{{ _system }}_{{ _arch }}.zip
   when:
     - inventory_hostname not in groups['nomad_servers']
     - nomad_drivers['podman']

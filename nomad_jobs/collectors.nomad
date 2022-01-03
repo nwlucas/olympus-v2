@@ -39,7 +39,6 @@ job "htpc-collectors" {
       driver = "containerd-driver"
       config {
         image         = "quay.io/linuxserver.io/radarr"
-        ports         = ["radarr"]
       }
 
       env{
@@ -104,7 +103,6 @@ job "htpc-collectors" {
       driver = "containerd-driver"
       config {
         image         = "quay.io/linuxserver.io/sonarr"
-        ports         = ["sonarr"]
       }
 
       service {
@@ -164,7 +162,6 @@ job "htpc-collectors" {
       driver = "containerd-driver"
       config {
         image         = "quay.io/linuxserver.io/lidarr"
-        ports         = ["lidarr"]
       }
 
       service {

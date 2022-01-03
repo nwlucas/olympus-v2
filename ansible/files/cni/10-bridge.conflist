@@ -1,6 +1,6 @@
 {
   "cniVersion": "1.0.0",
-  "name": "olympusnet",
+  "name": "olympus-bridge",
   "plugins": [
     {
       "type": "bridge",
