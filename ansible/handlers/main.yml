@@ -2,3 +2,13 @@
 - name: reload systemd
   ansible.builtin.systemd:
     daemon_reload: true
+
+- name: Generating Netplan Configuration
+  command: netplan generate
+  listen: netplan generate config
+  notify: netplan apply config
+
+- name: Applying Netplan Configuration
+  command: netplan apply
+  listen: netplan apply config
+  when: netplan_apply

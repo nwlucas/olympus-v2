@@ -9,7 +9,7 @@ job "plugin-nfs-provisioner" {
 
   group "controller" {
     network {
-      mode = "cni/olympus-bridge"
+      mode = "cni/olympus_bridge"
     }
 
     task "plugin" {

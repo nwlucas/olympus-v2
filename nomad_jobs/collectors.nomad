@@ -7,15 +7,10 @@ job "htpc-collectors" {
     value     = "host"
   }
 
-  constraint {
-    operator = "distinct_hosts"
-    value = true
-  }
-
   group "collector-radarr" {
     network {
-      // mode = "bridge"
-      port "radarr" { static = "7878" }
+      mode = "cni/olympus_bridge"
+      port "radarr" { to = "7878" }
     }
 
     restart {
@@ -36,7 +31,7 @@ job "htpc-collectors" {
     }
 
     task "radarr-container" {
-      driver = "containerd-driver"
+      driver = "podman"
       config {
         image         = "quay.io/linuxserver.io/radarr"
       }
@@ -48,19 +43,19 @@ job "htpc-collectors" {
       service {
         name          = "radarr"
         tags          = ["radarr"]
-        port          = "radarr"
-        address_mode  = "host"
+        address_mode  = "driver"
 
         meta {
           meta = "radarr"
         }
 
         check {
-          type      = "http"
-          port      = "radarr"
-          path      = "/"
-          interval  = "5s"
-          timeout   = "10s"
+          type          = "http"
+          path          = "/"
+          port          = "7878"
+          interval      = "5s"
+          timeout       = "10s"
+          address_mode  = "driver"
         }
       }
 
@@ -78,8 +73,7 @@ job "htpc-collectors" {
 
   group "collector-sonarr" {
     network {
-      // mode = "bridge"
-      port "sonarr" { static = "8989" }
+      mode = "cni/olympus_bridge"
     }
 
     restart {
@@ -100,7 +94,7 @@ job "htpc-collectors" {
     }
 
     task "sonarr-container" {
-      driver = "containerd-driver"
+      driver = "podman"
       config {
         image         = "quay.io/linuxserver.io/sonarr"
       }
@@ -108,7 +102,7 @@ job "htpc-collectors" {
       service {
         name = "sonarr"
         tags = ["sonarr"]
-        port = "sonarr"
+        address_mode  = "driver"
 
         meta {
           meta = "sonarr"
@@ -116,10 +110,11 @@ job "htpc-collectors" {
 
         check {
           type      = "http"
-          port      = "sonarr"
           path      = "/"
+          port      = "8989"
           interval  = "5s"
           timeout   = "10s"
+          address_mode  = "driver"
         }
       }
 
@@ -137,8 +132,7 @@ job "htpc-collectors" {
 
   group "collector-lidarr" {
     network {
-      // mode = "bridge"
-      port "lidarr" { static = "8686" }
+      mode = "cni/olympus_bridge"
     }
 
     restart {
@@ -159,7 +153,7 @@ job "htpc-collectors" {
     }
 
     task "lidarr-container" {
-      driver = "containerd-driver"
+      driver = "podman"
       config {
         image         = "quay.io/linuxserver.io/lidarr"
       }
@@ -167,7 +161,7 @@ job "htpc-collectors" {
       service {
         name = "lidarr"
         tags = ["lidarr"]
-        port = "lidarr"
+        address_mode  = "driver"
 
         meta {
           meta = "lidarr"
@@ -175,10 +169,12 @@ job "htpc-collectors" {
 
         check {
           type      = "http"
-          port      = "lidarr"
           path      = "/"
+          port      = "8686"
           interval  = "5s"
           timeout   = "10s"
+          address_mode  = "driver"
+
         }
       }
 

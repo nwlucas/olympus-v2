@@ -122,6 +122,10 @@
       tags:
         - always
 
+    - name: collect facts about system services
+      service_facts:
+      register: services_state
+
     # TODO: Move this service template so that it points to the correct binary download based on arch.
     - name: place network environment file
       ansible.builtin.template:
@@ -130,6 +134,32 @@
         mode: 0644
       notify:
         - reload systemd
+
+    - name: configure networking
+      block:
+        - name: template out vlan interface
+          ansible.builtin.template:
+            src: "netplan/config.yaml.j2"
+            dest: "/etc/netplan/10-vlan-{{ container_vlan }}.yaml"
+            owner: "root"
+            group: "root"
+            mode: "0644"
+          when: netplan_configuration.keys()|length > 0
+          notify: netplan generate config
+          vars:
+            netplan_renderer: "networkd"
+            netplan_apply: true
+            netplan_configuration:
+              network:
+                version: 2
+                vlans:
+                  cts:
+                    id: "{{ container_vlan }}"
+                    link: "{{ container_interface }}"
+
+      when: inventory_hostname in groups['app_servers']
+      tags:
+        - setup-network
 
     - name: place CNI plugins
       block:
@@ -142,6 +172,10 @@
             state: directory
           loop:
             - dir: "/opt/cni"
+              owner: "root"
+              group: "root"
+              mode: "0755"
+            - dir: "/opt/cni/config"
               owner: "root"
               group: "root"
               mode: "0755"
@@ -162,8 +196,75 @@
             mode: "0755"
           tags:
             - skip_ansible_lint
+
+        - name: place templated CNI configuration files in /etc/cni/net.d
+          ansible.builtin.template:
+            src: "{{ item }}"
+            dest: "/etc/cni/net.d/{{ item | basename | splitext | first }}"
+            mode: "0644"
+          register: _templated_cni
+          loop: "{{ lookup('fileglob', './templates/cni/*.conflist.j2', wantlist=True) }}"
+
+        - name: detect cni conf _cni_cnf_files
+          ansible.builtin.find:
+            paths: "/etc/cni/net.d"
+          register: _cni_cnf_files
+
+        # - name: print out detected _cni_cnf_files
+        #   ansible.builtin.debug:
+        #     var: item['path']
+        #   loop: "{{ _cni_cnf_files['files'] }}"
+
+        - name: template out DHCP daemon service and socket for CNI
+          ansible.builtin.template:
+            src: "{{ item }}"
+            dest: "/etc/systemd/system/{{ item | basename | splitext | first }}"
+            mode: "0644"
+          notify: reload systemd
+          loop:
+            - "cni/cni-dhcp.service.j2"
+            - "cni/cni-dhcp.socket.j2"
+
+        - name: detect if nomad is already installed
+          ansible.builtin.command: "which nomad"
+          changed_when: false
+          failed_when: _nomad_installed.rc not in [0,1]
+          register: _nomad_installed
+
+        - name: symlink templated CNI configuration files to /opt/cni/config for Nomad
+          ansible.builtin.file:
+            src: "{{ item['path'] }}"
+            dest: "/opt/cni/config/{{ item['path'] | basename }}"
+            force: true
+            state: "link"
+          register: _templated_cni_symlink
+          loop: "{{ _cni_cnf_files['files'] }}"
+          when:
+            - _nomad_installed.rc == 0
+            - _cni_cnf_files.keys() | length > 0
+            - _cni_cnf_files['files'] | length > 0
+
+        - name: detect is nomad service is running
+          ansible.builtin.systemd:
+            name: "nomad"
+          register: _nomad_service
+          when: _nomad_installed.rc == 0
+
+        - name: restart nomad service if running and cni conf files changed
+          ansible.builtin.systemd:
+            name: "nomad"
+            state: "restarted"
+          when:
+            - _nomad_service['status']['ActiveState'] == "active"
+            - _templated_cni.changed or _templated_cni_symlink.changed
+
+        - name: Enable and start cni-dhcp
+          ansible.builtin.systemd:
+            name: cni-dhcp.socket
+            state: started
+            enabled: true
       when:
-        - nomad_drivers['podman'] or nomad_drivers['containerd']
+        - inventory_hostname in groups['app_servers']
       tags:
         - install-cni
         - install-podman
@@ -184,7 +285,6 @@
           until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
           when:
             - nomad_drivers['containerd']
-            - inventory_hostname not in groups['nomad_servers']
 
         - name: uninstall containerd
           ansible.builtin.apt:
@@ -195,7 +295,6 @@
           until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
           when:
             - not nomad_drivers['containerd']
-            - inventory_hostname not in groups['nomad_servers']
 
         - name: install podman
           ansible.builtin.apt:
@@ -210,7 +309,6 @@
           until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
           when:
             - nomad_drivers['podman']
-            - inventory_hostname not in groups['nomad_servers']
 
         - name: uninstall podman
           ansible.builtin.apt:
@@ -221,17 +319,6 @@
           until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
           when:
             - not nomad_drivers['podman']
-            - inventory_hostname not in groups['nomad_servers']
-
-        - name: detect cni conf _cni_cnf_files
-          ansible.builtin.find:
-            paths: "/etc/cni/net.d"
-          register: _cni_cnf_files
-
-        - name: print out detected _cni_cnf_files
-          ansible.builtin.debug:
-            var: item
-          loop: "{{ _cni_cnf_files |  community.general.json_query('files[*].path') | list }}"
 
         - name: check for podman network default file.
           ansible.builtin.stat:
@@ -243,17 +330,10 @@
             path: "/etc/cni/net.d/87-podman-ptp.conflist"
             state: absent
           when: _podman_default.stat.exists
-
-        - name: place templated CNI configuration files
-          ansible.builtin.copy:
-            src: "{{ item }}"
-            dest: "/etc/cni/net.d/{{ item | basename }}"
-            mode: "0644"
-          loop: "{{ lookup('fileglob', './files/cni/*.conflist', wantlist=True) }}"
+      when: inventory_hostname in groups['app_servers']
       tags:
         - install-containerd
         - install-podman
-        - install-cni
 
     - name: install prerequisites
       ansible.builtin.apt:
@@ -329,6 +409,7 @@
         nomad_certs: "{{ _olympus_v2['nomad_hosts'] }}"
         nomad_ca: "{{ _olympus_v2['hashi_cas'] }}"
         nomad_encrypt_token: "{{ _olympus_v2['nomad_hosts']['nomad_secret'] }}"
+        nomad_log_level: "debug"
       tags:
         - nomad-install
         - nomad-certs
