@@ -163,6 +163,22 @@
 
     - name: place CNI plugins
       block:
+        - name: set sysctl settings
+          ansible.builtin.sysctl:
+            name: "{{ item['name'] }}"
+            value: "{{ item['value'] }}"
+            state: present
+            sysctl_file: /etc/sysctl.d/10-olympus.conf
+            sysctl_set: true
+          loop:
+            - name: net.ipv4.ip_forward
+              value: "1"
+            # - name: net.bridge.bridge-nf-call-iptables
+            #   value: "1"
+            # - name: net.bridge.bridge-nf-call-ip6tables
+            #   value: "1"
+            # - name: net.bridge.bridge-nf-call-arptables
+            #   value: "1"
         - name: make CNI directories
           ansible.builtin.file:
             path: "{{ item.dir }}"
@@ -244,7 +260,6 @@
           register: _templated_cni_symlink
           loop: "{{ _cni_cnf_files['files'] }}"
           when:
-            - _nomad_installed.rc == 0
             - _cni_cnf_files.keys() | length > 0
             - _cni_cnf_files['files'] | length > 0
 

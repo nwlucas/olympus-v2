@@ -1,14 +1,14 @@
 {
   "cniVersion": "0.4.0",
-  "name": "olympus_macvlan",
+  "name": "olympus_ipvlan",
   "plugins": [
     {
-      "type": "macvlan",
+      "type": "ipvlan",
       "master": "{{ container_vlan_name }}",
-      "mode": "bridge",
+      "mode": "l2",
 
       "ipam": {
-        "type": "dhcp"
+        "type": "host-local"
       }
     },
     {

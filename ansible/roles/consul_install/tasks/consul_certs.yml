@@ -115,6 +115,5 @@
   notify: restart consul services
   tags:
     - consul-certs
-
-- name: Force all notified handlers to run at this point, not waiting for normal sync points
-  meta: flush_handlers
+# - name: Force all notified handlers to run at this point, not waiting for normal sync points
+#   meta: flush_handlers
