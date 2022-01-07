@@ -15,7 +15,7 @@ cache=/tmp/ddclient.cache
 ##
 protocol=cloudflare
 use=if, if={{ ansible_facts['default_ipv4']['interface'] }}
-login={{ cf_email }}
+login='{{ cf_email }}'
 password={{ cf_global_key }}
 zone={{ inventory_hostname.split(".")[1:]|join(".")|lower }}
 {{ inventory_hostname }}
