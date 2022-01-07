@@ -231,6 +231,10 @@
           failed_when: _nomad_installed.rc not in [0,1]
           register: _nomad_installed
 
+        - name: print out
+          ansible.builtin.debug:
+            var: _nomad_installed
+
         - name: symlink templated CNI configuration files to /opt/cni/config for Nomad
           ansible.builtin.file:
             src: "{{ item['path'] }}"
@@ -250,11 +254,16 @@
           register: _nomad_service
           when: _nomad_installed.rc == 0
 
+        - name: print out
+          ansible.builtin.debug:
+            var: _nomad_service
+
         - name: restart nomad service if running and cni conf files changed
           ansible.builtin.systemd:
             name: "nomad"
             state: "restarted"
           when:
+            - _nomad_service is not skipped
             - _nomad_service['status']['ActiveState'] == "active"
             - _templated_cni.changed or _templated_cni_symlink.changed
 
