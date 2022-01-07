@@ -9,7 +9,7 @@ job "htpc-collectors" {
 
   group "collector-radarr" {
     network {
-      mode = "cni/olympus_bridge"
+      mode = "cni/olympus_macvlan"
       port "radarr" { to = "7878" }
     }
 
@@ -73,7 +73,7 @@ job "htpc-collectors" {
 
   group "collector-sonarr" {
     network {
-      mode = "cni/olympus_bridge"
+      mode = "cni/olympus_macvlan"
     }
 
     restart {
@@ -132,7 +132,7 @@ job "htpc-collectors" {
 
   group "collector-lidarr" {
     network {
-      mode = "cni/olympus_bridge"
+      mode = "cni/olympus_macvlan"
     }
 
     restart {
