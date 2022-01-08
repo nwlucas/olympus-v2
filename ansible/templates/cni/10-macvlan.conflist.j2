@@ -1,6 +1,6 @@
 {
   "cniVersion": "0.4.0",
-  "name": "olympus_macvlan",
+  "name": "cni_macvlan",
   "plugins": [
     {
       "type": "macvlan",
@@ -8,7 +8,22 @@
       "mode": "bridge",
 
       "ipam": {
-        "type": "dhcp"
+        "type": "host-local",
+        "ranges": [
+          [
+            {
+              "subnet": "",
+              "rangeStart": "",
+              "rangeEnd": "",
+              "gateway": ""
+            }
+          ]
+        ],
+        "routes": [
+          {
+            "dst": "0.0.0.0/0"
+          }
+        ]
       }
     },
     {
@@ -19,13 +34,6 @@
       "sysctl": {
         "net.core.somaxconn": "500"
       }
-    },
-    {
-        "type": "portmap",
-        "capabilities": {
-          "portMappings": true
-        },
-        "snat": true
     }
   ]
 }

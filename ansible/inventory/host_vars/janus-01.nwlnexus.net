@@ -1,1 +1,4 @@
-container_interface: "eno4"
+consul_listener_interface: "eno4"
+nomad_listener_interface: "eno4"
+
+container_interface: "eno1"

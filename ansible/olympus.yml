@@ -122,6 +122,16 @@
       tags:
         - always
 
+    - name: install prerequisites
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        update_cache: true
+        autoremove: true
+        autoclean: true
+      loop: "{{ hostprep_install_dependencies | default([]) }}"
+      tags:
+        - install-host-prereqs
+
     - name: collect facts about system services
       service_facts:
       register: services_state
@@ -137,27 +147,39 @@
 
     - name: configure networking
       block:
-        - name: template out vlan interface
-          ansible.builtin.template:
-            src: "netplan/config.yaml.j2"
-            dest: "/etc/netplan/10-vlan-{{ container_vlan }}.yaml"
-            owner: "root"
-            group: "root"
-            mode: "0644"
-          when: netplan_configuration.keys()|length > 0
-          notify: netplan generate config
-          vars:
-            netplan_renderer: "networkd"
-            netplan_apply: true
-            netplan_configuration:
-              network:
-                version: 2
-                vlans:
-                  cts:
-                    id: "{{ container_vlan }}"
-                    link: "{{ container_interface }}"
+        - name: configure various modules
+          community.general.modprobe:
+            name: "{{ item }}"
+            state: present
+          loop: "{{ kernel_modules }}"
 
-      when: inventory_hostname in groups['app_servers']
+        - name: persist module loading at boot
+          ansible.builtin.template:
+            src: "modprobe.j2"
+            dest: "/etc/modprobe.d/{{ ansible_facts['hostname'] }}.conf"
+            mode: "0644"
+
+        # - name: template out vlan interface
+        #   ansible.builtin.template:
+        #     src: "netplan/config.yaml.j2"
+        #     dest: "/etc/netplan/10-vlan-{{ container_vlan }}.yaml"
+        #     owner: "root"
+        #     group: "root"
+        #     mode: "0644"
+        #   when:
+        #     - netplan_configuration.keys()|length > 0
+        #     - inventory_hostname in groups['app_servers']
+        #   notify: netplan generate config
+        #   vars:
+        #     netplan_renderer: "networkd"
+        #     netplan_apply: false
+        #     netplan_configuration:
+        #       network:
+        #         version: 2
+        #         vlans:
+        #           cts:
+        #             id: "{{ container_vlan }}"
+        #             link: "{{ container_interface }}"
       tags:
         - setup-network
 
@@ -168,17 +190,17 @@
             name: "{{ item['name'] }}"
             value: "{{ item['value'] }}"
             state: present
-            sysctl_file: /etc/sysctl.d/10-olympus.conf
+            sysctl_file: /etc/sysctl.d/10-{{ ansible_facts['hostname'] }}.conf
             sysctl_set: true
           loop:
             - name: net.ipv4.ip_forward
               value: "1"
-            # - name: net.bridge.bridge-nf-call-iptables
-            #   value: "1"
-            # - name: net.bridge.bridge-nf-call-ip6tables
-            #   value: "1"
-            # - name: net.bridge.bridge-nf-call-arptables
-            #   value: "1"
+            - name: net.bridge.bridge-nf-call-iptables
+              value: "1"
+            - name: net.bridge.bridge-nf-call-ip6tables
+              value: "1"
+            - name: net.bridge.bridge-nf-call-arptables
+              value: "1"
         - name: make CNI directories
           ansible.builtin.file:
             path: "{{ item.dir }}"
@@ -263,7 +285,7 @@
             - _cni_cnf_files.keys() | length > 0
             - _cni_cnf_files['files'] | length > 0
 
-        - name: detect is nomad service is running
+        - name: detect if nomad service is running
           ansible.builtin.systemd:
             name: "nomad"
           register: _nomad_service
@@ -359,16 +381,6 @@
         - install-containerd
         - install-podman
 
-    - name: install prerequisites
-      ansible.builtin.apt:
-        name: "{{ item }}"
-        update_cache: true
-        autoremove: true
-        autoclean: true
-      loop: "{{ hostprep_install_dependencies | default([]) }}"
-      tags:
-        - install-host-prereqs
-
     - name: force all notified handlers to run at this point, not waiting for normal sync points
       meta: flush_handlers
 
@@ -393,7 +405,7 @@
     - role: cloudflare_tunnel
       when: "'cloudflared_nodes' in group_names"
       tags:
-        - cloudflare-install
+        - cloudflared-install
         - cf-install
 
     - role: traefik_install

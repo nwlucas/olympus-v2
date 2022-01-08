@@ -1,0 +1,47 @@
+---
+- name: preparing for cloudflared upgrade
+  block:
+    - name: get service status
+      ansible.builtin.service_facts:
+      register: services_state
+
+    - name: print services facts
+      ansible.builtin.debug:
+        var: services_state.ansible_facts.services
+      when: cloudflared_install_debug
+
+    - name: stop cloudflared service
+      ansible.builtin.systemd:
+        name: cloudflared.service
+        state: stop
+      when:
+        - "'cloudflared' in services_state.ansible_facts.services"
+        - services_state.ansible_facts.services["cloudflared.service"].state == "running"
+  when:
+    - cloudflared_systemd.stat.exists
+  tags:
+    - cloudflared-install
+
+- name: download binary
+  ansible.builtin.get_url:
+    url: "{{ cloudflared_repo_url }}/{{ cloudflared_version }}/cloudflared-{{ _discovered_os }}-{{ _discovered_arch }}"
+    dest: "{{ cloudflared_binary_dir }}/cloudflared"
+    owner: "{{ cloudflared_user }}"
+    group: "{{ cloudflared_group }}"
+    mode: 0555
+  notify:
+    - "restart cloudflared services"
+
+- name: create symbolic link for cloudflared
+  ansible.builtin.file:
+    src: "{{ cloudflared_binary_dir }}/cloudflared"
+    dest: "/usr/local/bin/cloudflared"
+    state: link
+    owner: "{{ cloudflared_user }}"
+    group: "{{ cloudflared_group }}"
+    mode: 0555
+  when:
+    - cloudflared_binary_dir != "/usr/local/bin"
+    - not cloudflared_binary_link.stat.exists
+  notify:
+    - "restart cloudflared services"

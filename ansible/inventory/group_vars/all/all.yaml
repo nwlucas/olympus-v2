@@ -4,6 +4,9 @@ ansible_user: ubuntu
 install_ddclient: true
 install_certbot: true
 
+kernel_modules:
+  - "br_netfilter"
+
 print_terraform_backend: false
 
 consul_datacenter: "{{ _olympus_v2['consul_hosts']['datacenter'] }}"
@@ -19,6 +22,7 @@ hostprep_install_dependencies:
   - "openjdk-17-jdk-headless"
   - "slirp4netns"
   - "fuse-overlayfs"
+  - "lldpd"
 
 nomad_drivers:
   raw_exec: true

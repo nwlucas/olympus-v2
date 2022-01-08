@@ -24,6 +24,11 @@ client {
 {% else %}
   node_class = "host"
 {% endif %}
+
+  meta {
+    chassis_vendor = "{{ ansible_facts['chassis_vendor']|trim|replace(' ','')|lower }}"
+    groups         = "{{ group_names|join(',') }}"
+  }
 }
 
 {% if inventory_hostname not in groups['nomad_servers'] and nomad_drivers['raw_exec'] %}

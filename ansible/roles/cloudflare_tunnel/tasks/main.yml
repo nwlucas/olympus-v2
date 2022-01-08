@@ -28,6 +28,11 @@
     _discovered_binary_version: "{{ cloudflared_binary_version.stdout.split(' ')[2] }}"
   when: cloudflared_binary.stat.exists
 
+- name: print discovered version
+  ansible.builtin.debug:
+    var: _discovered_binary_version
+  when: cloudflared_install_debug
+
 - name: determine if to install or upgrade cloudflared binary
   ansible.builtin.set_fact:
     _install_cloudflared: "{{ true | default(false) }}"
@@ -43,11 +48,6 @@
 - name: testing variable cloudflared_version to be installed
   ansible.builtin.debug:
     var: cloudflared_version
-  when: cloudflared_install_debug and _install_cloudflared
-
-- name: testing variable cloudflared_archive_url to get cloudflared binary from
-  ansible.builtin.debug:
-    var: cloudflared_archive_url
   when: cloudflared_install_debug and _install_cloudflared
 
 - name: define supported *nix distributions
@@ -114,6 +114,11 @@
     var: _discovered_arch
   when: cloudflared_install_debug
 
+- name: testing variable cloudflared_archive_url to get cloudflared binary from
+  ansible.builtin.debug:
+    var: "{{ cloudflared_repo_url }}/{{ cloudflared_version }}/cloudflared-{{ _discovered_os }}-{{ _discovered_arch }}"
+  when: cloudflared_install_debug and _install_cloudflared
+
 - name: create cloudflared group
   ansible.builtin.group:
     name: "{{ cloudflared_group }}"
@@ -128,69 +133,28 @@
     home: "{{ cloudflared_config_path | dirname }}"
     state: present
 
-- name: ensure the binary directory exists
+- name: ensure directories exists
   ansible.builtin.file:
-    path: "{{ cloudflared_binary_dir }}"
-    owner: "root"
-    group: "root"
-    mode: 0755
+    path: "{{ item.path }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
     state: directory
-  when: cloudflared_binary_dir != "/usr/local/bin"
+  loop:
+    - path: "{{ cloudflared_binary_dir }}"
+      owner: "root"
+      group: "root"
+      mode: "0755"
+    - path: "{{ cloudflared_config_path }}"
+      owner: "{{ cloudflared_user }}"
+      group: "{{ cloudflared_group }}"
+      mode: "0755"
 
-- name: download binary
-  ansible.builtin.get_url:
-    url: "{{ cloudflared_repo_url }}/{{ cloudflared_version }}/cloudflared-{{ _discovered_os }}-{{ _discovered_arch }}"
-    dest: "{{ cloudflared_binary_dir }}/cloudflared"
-    owner: "{{ cloudflared_user }}"
-    group: "{{ cloudflared_group }}"
-    mode: 0555
-  when: not cloudflared_binary.stat.exists
+- name: install cloudflared
+  ansible.builtin.include_tasks:
+    file: cloudflared_install.yml
+  when: _install_cloudflared
 
-- name: create symbolic link for cloudflared
-  ansible.builtin.file:
-    src: "{{ cloudflared_binary_dir }}/cloudflared"
-    dest: "/usr/local/bin/cloudflared"
-    state: link
-    owner: "{{ cloudflared_user }}"
-    group: "{{ cloudflared_group }}"
-    mode: 0555
-  when:
-    - cloudflared_binary_dir != "/usr/local/bin"
-    - not cloudflared_binary_link.stat.exists
-
-- name: ensure cloudflared directories exists
-  ansible.builtin.file:
-    path: "{{ cloudflared_config_path }}"
-    owner: "{{ cloudflared_user }}"
-    group: "{{ cloudflared_group }}"
-    mode: 0755
-    state: directory
-
-- name: place cloudflared credentials file
-  ansible.builtin.template:
-    src: credentials.j2
-    dest: "{{ cloudflared_config_path }}/credentials.json"
-    owner: "{{ cloudflared_user }}"
-    group: "{{ cloudflared_group }}"
-    mode: "0644"
-
-- name: place cloudflared config file
-  ansible.builtin.template:
-    src: config.j2
-    dest: "{{ cloudflared_config_path }}/config.yml"
-    owner: "{{ cloudflared_user }}"
-    group: "{{ cloudflared_group }}"
-    mode: "0644"
-  notify:
-    - "restart cloudflared services"
-
-- name: place cloudflared systemd file
-  ansible.builtin.template:
-    src: systemd.j2
-    dest: /etc/systemd/system/cloudflared.service
-    owner: "root"
-    group: "root"
-    mode: "0644"
-  notify:
-    - systemd_reload
-    - "restart cloudflared services"
+- name: configure cloudflared
+  ansible.builtin.include_tasks:
+    file: cloudflared_config.yml

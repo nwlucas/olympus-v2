@@ -14,12 +14,9 @@ rpi-06.nwlnexus.net
 hades.nwlnexus.net
 
 [app_servers]
-rpi-06.nwlnexus.net
 janus-[01:02].nwlnexus.net
 hades.nwlnexus.net
-
-[dhcp_server]
-hades.nwlnexus.net
+rpi-06.nwlnexus.net
 
 [rpi_servers]
 rpi-[01:06].nwlnexus.net

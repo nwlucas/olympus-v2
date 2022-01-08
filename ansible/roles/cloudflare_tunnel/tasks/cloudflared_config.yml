@@ -1,0 +1,28 @@
+- name: place cloudflared credentials file
+  ansible.builtin.template:
+    src: credentials.j2
+    dest: "{{ cloudflared_config_path }}/credentials.json"
+    owner: "{{ cloudflared_user }}"
+    group: "{{ cloudflared_group }}"
+    mode: "0644"
+
+- name: place cloudflared config file
+  ansible.builtin.template:
+    src: config.j2
+    dest: "{{ cloudflared_config_path }}/config.yml"
+    owner: "{{ cloudflared_user }}"
+    group: "{{ cloudflared_group }}"
+    mode: "0644"
+  notify:
+    - "restart cloudflared services"
+
+- name: place cloudflared systemd file
+  ansible.builtin.template:
+    src: systemd.j2
+    dest: /etc/systemd/system/cloudflared.service
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  notify:
+    - systemd_reload
+    - "restart cloudflared services"
