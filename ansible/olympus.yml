@@ -145,7 +145,7 @@
       notify:
         - reload systemd
 
-    - name: configure networking
+    - name: configure modules
       block:
         - name: configure various modules
           community.general.modprobe:
@@ -159,7 +159,47 @@
             dest: "/etc/modprobe.d/{{ ansible_facts['hostname'] }}.conf"
             mode: "0644"
 
-        # - name: template out vlan interface
+        - name: set sysctl settings
+          ansible.builtin.sysctl:
+            name: "{{ item['name'] }}"
+            value: "{{ item['value'] }}"
+            state: present
+            sysctl_file: /etc/sysctl.d/10-{{ ansible_facts['hostname'] }}.conf
+            sysctl_set: true
+          loop:
+            - name: net.ipv4.ip_forward
+              value: "1"
+            - name: net.bridge.bridge-nf-call-iptables
+              value: "1"
+            - name: net.bridge.bridge-nf-call-ip6tables
+              value: "1"
+            - name: net.bridge.bridge-nf-call-arptables
+              value: "1"
+      when:
+        - inventory_hostname in groups['app_servers']
+      tags:
+        - setup-modules
+
+    - name: configure networking
+      block:
+        - name: install packages only when the apt process is not locked
+          ansible.builtin.apt:
+            name: "{{ item }}"
+            state: present
+            update_cache: true
+            cache_valid_time: 3600
+            autoremove: true
+            autoclean: true
+          register: apt_action
+          retries: 100
+          until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+          loop:
+            - openvswitch-switch
+            - openvswitch-common
+            - openvswitch-datapath-dkms
+            - openvswitch-switch-dpdk
+
+        # - name: template out conatiner/app interface
         #   ansible.builtin.template:
         #     src: "netplan/config.yaml.j2"
         #     dest: "/etc/netplan/10-vlan-{{ container_vlan }}.yaml"
@@ -180,27 +220,14 @@
         #           cts:
         #             id: "{{ container_vlan }}"
         #             link: "{{ container_interface }}"
+      when:
+        - inventory_hostname in groups['app_servers']
+        - configure_networking
       tags:
         - setup-network
 
     - name: place CNI plugins
       block:
-        - name: set sysctl settings
-          ansible.builtin.sysctl:
-            name: "{{ item['name'] }}"
-            value: "{{ item['value'] }}"
-            state: present
-            sysctl_file: /etc/sysctl.d/10-{{ ansible_facts['hostname'] }}.conf
-            sysctl_set: true
-          loop:
-            - name: net.ipv4.ip_forward
-              value: "1"
-            - name: net.bridge.bridge-nf-call-iptables
-              value: "1"
-            - name: net.bridge.bridge-nf-call-ip6tables
-              value: "1"
-            - name: net.bridge.bridge-nf-call-arptables
-              value: "1"
         - name: make CNI directories
           ansible.builtin.file:
             path: "{{ item.dir }}"

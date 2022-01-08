@@ -23,6 +23,7 @@ hostprep_install_dependencies:
   - "slirp4netns"
   - "fuse-overlayfs"
   - "lldpd"
+  - "bcc"
 
 nomad_drivers:
   raw_exec: true
