@@ -1,0 +1,11 @@
+[Match]
+MACAddress={{ ansible_facts[container_interface]['macaddress'] }}
+Name={{ container_interface }}
+
+[Network]
+LinkLocalAddressing=no
+{% if app_networks|length > 0 %}
+{% for n in app_networks %}
+VLAN={{ n['name'] }}
+{% endfor -%}
+{% endif %}

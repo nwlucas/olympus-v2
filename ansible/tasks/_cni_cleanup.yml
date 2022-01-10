@@ -1,0 +1,89 @@
+- name: (2nd pass) detect cni conf _cni_cnf_files
+  ansible.builtin.find:
+    paths: "/etc/cni/net.d"
+  register: _cni_cnf_files_pass2
+
+- name: (2nd pass) print out detected _cni_cnf_files
+  ansible.builtin.debug:
+    var: item['path']
+  loop: "{{ _cni_cnf_files_pass2['files'] }}"
+  when: install_cni_debug
+
+- name: (2nd pass) detect symlinked cni files
+  ansible.builtin.find:
+    paths: "/opt/cni/config"
+  register: _cni_symlinked_files_pass2
+
+- name: (2nd pass) print out detected symlinked cni files
+  ansible.builtin.debug:
+    var: item['path']
+  loop: "{{ _cni_symlinked_files_pass2['files'] }}"
+  when: install_cni_debug
+
+- name: filtering _cni_cnf_files
+  ansible.builtin.set_fact:
+    _old_cni_files: "{{ _cni_cnf_files['files']|map(attribute='path')|list }}"
+
+- name: filtering _cni_symlinked_files
+  ansible.builtin.set_fact:
+    _old_cni_symlinked_files: "{{ _cni_symlinked_files['files']|map(attribute='path')|list }}"
+
+- name: filtering _cni_cnf_files_pass2
+  ansible.builtin.set_fact:
+    _new_cni_files: "{{ _cni_cnf_files_pass2['files']|map(attribute='path')|list }}"
+
+- name: filtering _cni_symlinked_files
+  ansible.builtin.set_fact:
+    _new_cni_symlinked_files: "{{ _cni_symlinked_files_pass2['files']|map(attribute='path')|list }}"
+
+- name: determining new files to be removed
+  ansible.builtin.set_fact:
+    _cni_files_remove: "{{ _new_cni_files|difference(_old_cni_files) }}"
+
+- name: determining new symlinks  to be removed
+  ansible.builtin.set_fact:
+    _cni_symlinks_remove: "{{ _new_cni_symlinked_files|difference(_old_cni_symlinked_files) }}"
+
+- name: show _cni_cnf_files filtering
+  ansible.builtin.debug:
+    var: _old_cni_files
+  when: install_cni_debug
+
+- name: show _cni_symlinked_files filtering
+  ansible.builtin.debug:
+    var: _old_cni_symlinked_files
+  when: install_cni_debug
+
+- name: show _cni_cnf_files_pass2 filtering
+  ansible.builtin.debug:
+    var: _new_cni_files
+  when: install_cni_debug
+
+- name: show _cni_symlinked_files_pass2 filtering
+  ansible.builtin.debug:
+    var: _new_cni_symlinked_files
+  when: install_cni_debug
+
+- name: show cni conf files to be removed
+  ansible.builtin.debug:
+    var: _cni_files_remove
+  when: install_cni_debug
+
+- name: show cni symlinked conf files to be removed
+  ansible.builtin.debug:
+    var: _cni_symlinks_remove
+  when: install_cni_debug
+
+- name: remove cni conf files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ _cni_files_remove }}"
+  when: _cni_files_remove|length > 0
+
+- name: remove cni symlinks
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ _cni_symlinks_remove }}"
+  when: _cni_symlinks_remove|length > 0

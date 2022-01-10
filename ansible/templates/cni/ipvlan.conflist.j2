@@ -1,10 +1,10 @@
 {
   "cniVersion": "0.4.0",
-  "name": "olympus_ipvlan",
+  "name": "{{ 'cni_ipvlan_' + parent_interface|replace('-','_')|lower }}",
   "plugins": [
     {
       "type": "ipvlan",
-      "master": "{{ container_vlan_name }}",
+      "master": "{{ parent_interface }}",
       "mode": "l2",
 
       "ipam": {

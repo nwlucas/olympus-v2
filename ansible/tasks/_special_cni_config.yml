@@ -1,0 +1,11 @@
+---
+- name: place templated CNI configuration files in /etc/cni/net.d
+  ansible.builtin.template:
+    src: "{{ item }}"
+    dest: "/etc/cni/net.d/{{ parent_interface }}-{{ item |basename|splitext| first }}"
+    mode: "0644"
+  register: _templated_cni
+  loop: "{{ lookup('fileglob', './templates/cni/*.conflist.j2', wantlist=True) }}"
+  vars:
+    parent_interface: "{{ app_net['name'] }}"
+    subnet: "{{ app_net['subnet'] }}"

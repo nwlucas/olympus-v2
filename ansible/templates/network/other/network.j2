@@ -1,0 +1,8 @@
+[Match]
+Name={{ interface_name }}
+
+[Network]
+ConfigureWithoutCarrier=yes
+{# {%- if interface_kind == 'vlan' %}
+Bridge=br-{{ interface_name }}
+{% endif%} #}

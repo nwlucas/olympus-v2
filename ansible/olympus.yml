@@ -164,7 +164,7 @@
             name: "{{ item['name'] }}"
             value: "{{ item['value'] }}"
             state: present
-            sysctl_file: /etc/sysctl.d/10-{{ ansible_facts['hostname'] }}.conf
+            sysctl_file: /etc/sysctl.d/50-{{ ansible_facts['hostname'] }}.conf
             sysctl_set: true
           loop:
             - name: net.ipv4.ip_forward
@@ -182,47 +182,27 @@
 
     - name: configure networking
       block:
-        - name: install packages only when the apt process is not locked
-          ansible.builtin.apt:
-            name: "{{ item }}"
-            state: present
-            update_cache: true
-            cache_valid_time: 3600
-            autoremove: true
-            autoclean: true
-          register: apt_action
-          retries: 100
-          until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
-          loop:
-            - openvswitch-switch
-            - openvswitch-common
-            - openvswitch-datapath-dkms
-            - openvswitch-switch-dpdk
+        - name: prepare lower level networking if needed
+          ansible.builtin.include_tasks:
+            file: tasks/_special_networking.yml
+          loop: "{{ app_networks }}"
+          loop_control:
+            loop_var: app_net
+          when:
+            - app_networks is defined
+            - app_networks|length > 0
 
-        # - name: template out conatiner/app interface
-        #   ansible.builtin.template:
-        #     src: "netplan/config.yaml.j2"
-        #     dest: "/etc/netplan/10-vlan-{{ container_vlan }}.yaml"
-        #     owner: "root"
-        #     group: "root"
-        #     mode: "0644"
-        #   when:
-        #     - netplan_configuration.keys()|length > 0
-        #     - inventory_hostname in groups['app_servers']
-        #   notify: netplan generate config
-        #   vars:
-        #     netplan_renderer: "networkd"
-        #     netplan_apply: false
-        #     netplan_configuration:
-        #       network:
-        #         version: 2
-        #         vlans:
-        #           cts:
-        #             id: "{{ container_vlan }}"
-        #             link: "{{ container_interface }}"
+        - name: template out conatiner/app parent interface
+          ansible.builtin.template:
+            src: "{{ item }}"
+            dest: "/etc/systemd/network/10-{{ container_interface }}.{{ item |basename|splitext|first }}"
+            owner: "root"
+            group: "root"
+            mode: "0644"
+          loop: "{{ lookup('fileglob', './templates/network/interface/*.j2', wantlist=True) }}"
+          notify: restart networkd
       when:
         - inventory_hostname in groups['app_servers']
-        - configure_networking
       tags:
         - setup-network
 
@@ -262,23 +242,20 @@
           tags:
             - skip_ansible_lint
 
-        - name: place templated CNI configuration files in /etc/cni/net.d
-          ansible.builtin.template:
-            src: "{{ item }}"
-            dest: "/etc/cni/net.d/{{ item | basename | splitext | first }}"
-            mode: "0644"
-          register: _templated_cni
-          loop: "{{ lookup('fileglob', './templates/cni/*.conflist.j2', wantlist=True) }}"
-
-        - name: detect cni conf _cni_cnf_files
+        - name: (1st pass) detect cni conf _cni_cnf_files
           ansible.builtin.find:
             paths: "/etc/cni/net.d"
           register: _cni_cnf_files
 
-        # - name: print out detected _cni_cnf_files
-        #   ansible.builtin.debug:
-        #     var: item['path']
-        #   loop: "{{ _cni_cnf_files['files'] }}"
+        - name: config cni for each app network as needed
+          ansible.builtin.include_tasks:
+            file: tasks/_special_cni_config.yml
+          loop: "{{ app_networks }}"
+          loop_control:
+            loop_var: app_net
+          when:
+            - app_networks is defined
+            - app_networks|length > 0
 
         - name: template out DHCP daemon service and socket for CNI
           ansible.builtin.template:
@@ -299,6 +276,7 @@
         - name: print out
           ansible.builtin.debug:
             var: _nomad_installed
+          when: install_cni_debug
 
         - name: symlink templated CNI configuration files to /opt/cni/config for Nomad
           ansible.builtin.file:
@@ -312,6 +290,15 @@
             - _cni_cnf_files.keys() | length > 0
             - _cni_cnf_files['files'] | length > 0
 
+        - name: (1st pass) detect symlinked cni files
+          ansible.builtin.find:
+            paths: "/opt/cni/config"
+          register: _cni_symlinked_files
+
+        - name: perform CNI config file cleanup
+          ansible.builtin.include_tasks:
+            file: tasks/_cni_cleanup.yml
+
         - name: detect if nomad service is running
           ansible.builtin.systemd:
             name: "nomad"
@@ -321,6 +308,7 @@
         - name: print out
           ansible.builtin.debug:
             var: _nomad_service
+          when: install_cni_debug
 
         - name: restart nomad service if running and cni conf files changed
           ansible.builtin.systemd:

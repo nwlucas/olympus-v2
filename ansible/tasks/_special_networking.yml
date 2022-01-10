@@ -1,0 +1,26 @@
+---
+- name: template out conatiner/app vlan interfaces
+  ansible.builtin.template:
+    src: "{{ item }}"
+    dest: "/etc/systemd/network/30-{{ interface_kind }}-{{ interface_name }}.{{ item |basename|splitext|first }}"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  loop: "{{ lookup('fileglob', './templates/network/other/*.j2', wantlist=True) }}"
+  vars:
+    interface_kind: "vlan"
+    interface_name: "{{ app_net['name'] }}"
+    interface_vlan_id: "{{ app_net['id'] }}"
+  notify: restart networkd
+# - name: template out conatiner/app bridge interface
+#   ansible.builtin.template:
+#     src: "{{ item }}"
+#     dest: "/etc/systemd/network/10-{{ interface_kind }}-{{ app_net['name'] }}.{{ item |basename|splitext|first }}"
+#     owner: "root"
+#     group: "root"
+#     mode: "0644"
+#   loop: "{{ lookup('fileglob', './templates/network/other/*.j2', wantlist=True) }}"
+#   vars:
+#     interface_kind: "bridge"
+#     interface_name: "br-{{ app_net['name'] }}"
+#   notify: restart networkd

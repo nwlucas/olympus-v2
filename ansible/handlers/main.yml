@@ -12,3 +12,10 @@
   command: netplan apply
   listen: netplan apply config
   when: netplan_apply
+
+- name: Restarting Networking
+  ansible.builtin.systemd:
+    state: restarted
+    daemon_reload: true
+    name: systemd-networkd
+  listen: restart networkd

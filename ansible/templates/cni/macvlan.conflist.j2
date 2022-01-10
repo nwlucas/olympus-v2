@@ -1,10 +1,10 @@
 {
   "cniVersion": "0.4.0",
-  "name": "cni_macvlan",
+  "name": "{{ 'cni_macvlan_' + parent_interface|replace('-','_')|lower }}",
   "plugins": [
     {
       "type": "macvlan",
-      "master": "{{ container_vlan_name }}",
+      "master": "{{ parent_interface }}",
       "mode": "bridge",
 
       "ipam": {
@@ -12,10 +12,10 @@
         "ranges": [
           [
             {
-              "subnet": "",
+              "subnet": "{{ subnet }}",
               "rangeStart": "",
               "rangeEnd": "",
-              "gateway": ""
+              "gateway": "{{ subnet | ipaddr('net') | ipaddr('1') | ipaddr('address') }}"
             }
           ]
         ],

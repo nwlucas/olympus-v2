@@ -1,2 +1,9 @@
-container_vlan: "99"
-container_vlan_name: "cts"
+app_networks:
+  - name: nonsecure
+    id: 98
+    subnet: "10.98.0.0/16"
+  - name: secure
+    id: 99
+    subnet: "10.99.0.0/16"
+
+install_cni_debug: false

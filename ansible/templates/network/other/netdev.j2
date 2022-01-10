@@ -1,0 +1,8 @@
+[NetDev]
+Name={{ interface_name }}
+Kind={{ interface_kind }}
+
+{% if interface_kind == 'vlan' %}
+[VLAN]
+Id={{ interface_vlan_id }}
+{% endif%}

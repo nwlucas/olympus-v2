@@ -1,10 +1,10 @@
 {
   "cniVersion": "0.4.0",
-  "name": "cni_bridge",
+  "name": "{{ 'cni_bridge_' + parent_interface|replace('-','_')|lower }}",
   "plugins": [
     {
       "type": "bridge",
-      "bridge": "cni0",
+      "bridge": "{{ 'br-' + parent_interface }}",
       "ipMasq": true,
       "hairpinMode": true,
       "promiscMode": true,

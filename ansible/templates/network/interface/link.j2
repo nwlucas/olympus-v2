@@ -1,0 +1,6 @@
+[Match]
+MACAddress={{ ansible_facts[container_interface]['macaddress'] }}
+
+[Link]
+Name={{ container_interface }}
+WakeOnLan=off
