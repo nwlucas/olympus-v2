@@ -1,4 +1,18 @@
 ---
+- name: generate file names
+  ansible.builtin.set_fact:
+    _new_net_files: |
+      "{{ _new_net_files|default([]) + [filename] }}"
+  loop: "{{ query('fileglob', './templates/network/other/*.j2') }}"
+  vars:
+    interface_kind: "vlan"
+    interface_name: "{{ app_net['name'] }}"
+    filename: "30-{{ interface_kind }}-{{ interface_name }}.{{ item |basename|splitext|first }}"
+
+- name: print out
+  ansible.builtin.debug:
+    var: _new_net_files
+
 - name: template out conatiner/app vlan interfaces
   ansible.builtin.template:
     src: "{{ item }}"
