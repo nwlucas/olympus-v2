@@ -182,6 +182,10 @@
 
     - name: configure networking
       block:
+        - name: generate file names
+          ansible.builtin.set_fact:
+            _new_net_files: []
+
         - name: prepare lower level networking if needed
           ansible.builtin.include_tasks:
             file: tasks/_special_networking.yml
