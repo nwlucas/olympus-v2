@@ -1,4 +1,4 @@
-consul_listener_interface: "eth0"
-nomad_listener_interface: "eth0"
+consul_listener_interface: "eno1"
+nomad_listener_interface: "eno1"
 
 container_interface: "eth1"

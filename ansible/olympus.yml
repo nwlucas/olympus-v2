@@ -180,35 +180,35 @@
       tags:
         - setup-modules
 
-    - name: configure networking
-      block:
-        - name: generate file names
-          ansible.builtin.set_fact:
-            _new_net_files: []
+    # - name: configure networking
+    #   block:
+    #     - name: generate file names
+    #       ansible.builtin.set_fact:
+    #         _new_net_files: []
 
-        - name: prepare lower level networking if needed
-          ansible.builtin.include_tasks:
-            file: tasks/_special_networking.yml
-          loop: "{{ app_networks }}"
-          loop_control:
-            loop_var: app_net
-          when:
-            - app_networks is defined
-            - app_networks|length > 0
+    #     - name: prepare lower level networking if needed
+    #       ansible.builtin.include_tasks:
+    #         file: tasks/_special_networking.yml
+    #       loop: "{{ app_networks }}"
+    #       loop_control:
+    #         loop_var: app_net
+    #       when:
+    #         - app_networks is defined
+    #         - app_networks|length > 0
 
-        - name: template out conatiner/app parent interface
-          ansible.builtin.template:
-            src: "{{ item }}"
-            dest: "/etc/systemd/network/10-{{ container_interface }}.{{ item |basename|splitext|first }}"
-            owner: "root"
-            group: "root"
-            mode: "0644"
-          loop: "{{ lookup('fileglob', './templates/network/interface/*.j2', wantlist=True) }}"
-          notify: restart networkd
-      when:
-        - inventory_hostname in groups['app_servers']
-      tags:
-        - setup-network
+    #     - name: template out conatiner/app parent interface
+    #       ansible.builtin.template:
+    #         src: "{{ item }}"
+    #         dest: "/etc/systemd/network/10-{{ container_interface }}.{{ item |basename|splitext|first }}"
+    #         owner: "root"
+    #         group: "root"
+    #         mode: "0644"
+    #       loop: "{{ lookup('fileglob', './templates/network/interface/*.j2', wantlist=True) }}"
+    #       notify: restart networkd
+    #   when:
+    #     - inventory_hostname in groups['app_servers']
+    #   tags:
+    #     - setup-network
 
     - name: place CNI plugins
       block:
@@ -335,11 +335,30 @@
         - install-podman
         - install-containerd
 
-    - name: install/uninstall containerd
+    - name: install and configure Docker
       block:
-        - name: install containerd
+        - name: add docker apt key
+          ansible.builtin.apt_key:
+            id: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+            url: "https://download.docker.com/linux/ubuntu/gpg"
+            keyring: "/usr/share/keyrings/docker-archive-keyring.gpg"
+            state: present
+
+        - name: Add Docker repository into sources list using specified filename
+          ansible.builtin.apt_repository:
+            repo: "deb [arch={{ _arch }} signed-by={{ _keyring }}] https://download.docker.com/linux/ubuntu {{ _release }} stable"
+            state: present
+            filename: docker-ce
+          vars:
+            _keyring: "/usr/share/keyrings/docker-archive-keyring.gpg"
+            _arch: "{%- if ansible_facts['architecture'] == 'aarch64' %}arm64{%- else %}amd64{%- endif %}"
+            _release: "{{ ansible_distribution_release|lower }}"
+          tags:
+            - skip_ansible_lint
+
+        - name: install packages only when the apt process is not locked
           ansible.builtin.apt:
-            name: "containerd"
+            name: "{{ item }}"
             state: present
             update_cache: true
             cache_valid_time: 3600
@@ -348,57 +367,82 @@
           register: apt_action
           retries: 100
           until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
-          when:
-            - nomad_drivers['containerd']
-
-        - name: uninstall containerd
-          ansible.builtin.apt:
-            name: "containerd"
-            state: absent
-          register: apt_action
-          retries: 100
-          until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
-          when:
-            - not nomad_drivers['containerd']
-
-        - name: install podman
-          ansible.builtin.apt:
-            name: "podman"
-            state: present
-            update_cache: true
-            cache_valid_time: 3600
-            autoremove: true
-            autoclean: true
-          register: apt_action
-          retries: 100
-          until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
-          when:
-            - nomad_drivers['podman']
-
-        - name: uninstall podman
-          ansible.builtin.apt:
-            name: "podman"
-            state: absent
-          register: apt_action
-          retries: 100
-          until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
-          when:
-            - not nomad_drivers['podman']
-
-        - name: check for podman network default file.
-          ansible.builtin.stat:
-            path: "/etc/cni/net.d/87-podman-ptp.conflist"
-          register: _podman_default
-
-        - name: remove podman default file if found
-          ansible.builtin.file:
-            path: "/etc/cni/net.d/87-podman-ptp.conflist"
-            state: absent
-          when: _podman_default.stat.exists
-      when: inventory_hostname in groups['app_servers']
+          loop:
+            - docker-ce
+            - docker-ce-cli
+            - containerd.io
+            - cgroupfs-mount
+            - aufs-tools
+      when:
+        - inventory_hostname in groups['app_servers']
+        - use_docker
       tags:
-        - install-containerd
-        - install-podman
+        - setup-docker
+
+    # - name: install/uninstall containerd
+    #   block:
+    #     - name: install containerd
+    #       ansible.builtin.apt:
+    #         name: "containerd"
+    #         state: present
+    #         update_cache: true
+    #         cache_valid_time: 3600
+    #         autoremove: true
+    #         autoclean: true
+    #       register: apt_action
+    #       retries: 100
+    #       until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+    #       when:
+    #         - nomad_drivers['containerd']
+
+    #     - name: uninstall containerd
+    #       ansible.builtin.apt:
+    #         name: "containerd"
+    #         state: absent
+    #       register: apt_action
+    #       retries: 100
+    #       until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+    #       when:
+    #         - not nomad_drivers['containerd']
+
+    #     - name: install podman
+    #       ansible.builtin.apt:
+    #         name: "podman"
+    #         state: present
+    #         update_cache: true
+    #         cache_valid_time: 3600
+    #         autoremove: true
+    #         autoclean: true
+    #       register: apt_action
+    #       retries: 100
+    #       until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+    #       when:
+    #         - nomad_drivers['podman']
+
+    #     - name: uninstall podman
+    #       ansible.builtin.apt:
+    #         name: "podman"
+    #         state: absent
+    #       register: apt_action
+    #       retries: 100
+    #       until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+    #       when:
+    #         - not nomad_drivers['podman']
+
+    #     - name: check for podman network default file.
+    #       ansible.builtin.stat:
+    #         path: "/etc/cni/net.d/87-podman-ptp.conflist"
+    #       register: _podman_default
+
+    #     - name: remove podman default file if found
+    #       ansible.builtin.file:
+    #         path: "/etc/cni/net.d/87-podman-ptp.conflist"
+    #         state: absent
+    #       when: _podman_default.stat.exists
+    #   when: inventory_hostname in groups['app_servers']
+    #   tags:
+    #     - install-containerd
+    #     - install-podman
 
     - name: force all notified handlers to run at this point, not waiting for normal sync points
       meta: flush_handlers
