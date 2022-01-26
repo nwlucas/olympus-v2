@@ -1,3 +1,5 @@
+use_docker: true
+
 app_networks:
   - name: nonsecure
     id: 98
