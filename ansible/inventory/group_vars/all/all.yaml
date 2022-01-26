@@ -26,8 +26,8 @@ hostprep_install_dependencies:
 
 nomad_drivers:
   raw_exec: true
-  podman: true
-  containerd: true
+  podman: false
+  containerd: false
 
 cni:
   url: "https://github.com/containernetworking/plugins/releases/download/"
