@@ -1,4 +1,5 @@
 use_docker: true
+use_kata_containers: false
 
 app_networks:
   - name: nonsecure

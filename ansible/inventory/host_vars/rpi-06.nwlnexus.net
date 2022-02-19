@@ -2,3 +2,5 @@ consul_listener_interface: "eth0"
 nomad_listener_interface: "eth0"
 
 container_interface: "eth0"
+
+use_kata_containers: false

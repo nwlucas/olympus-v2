@@ -23,11 +23,13 @@ hostprep_install_dependencies:
   - "slirp4netns"
   - "fuse-overlayfs"
   - "lldpd"
+  - "tmux"
 
 nomad_drivers:
   raw_exec: true
   podman: false
   containerd: false
+  docker: true
 
 cni:
   url: "https://github.com/containernetworking/plugins/releases/download/"

@@ -356,6 +356,29 @@
           tags:
             - skip_ansible_lint
 
+        - name: add kata-containers apt key
+          ansible.builtin.apt_key:
+            url: "{{ _repo }}:/x86_64:/master/xUbuntu_20.04/Release.key"
+            keyring: "/usr/share/keyrings/kata-containers-keyring.gpg"
+            state: present
+          vars:
+            _repo: "http://download.opensuse.org/repositories/home:/katacontainers:/releases"
+          when: use_kata_containers
+          tags:
+            - skip_ansible_lint
+
+        - name: Add kata-containers repository into sources list using specified filename
+          ansible.builtin.copy:
+            content: "deb [arch=amd64 signed-by={{ _keyring }}] {{ _repo }}:/x86_64/master/xUbuntu_20.04/ /"
+            mode: "0644"
+            dest: "/etc/apt/sources.list.d/kata-containers.list"
+          vars:
+            _repo: "http://download.opensuse.org/repositories/home:/katacontainers:/releases"
+            _keyring: "/usr/share/keyrings/kata-containers-keyring.gpg"
+          when: use_kata_containers
+          tags:
+            - skip_ansible_lint
+
         - name: install packages only when the apt process is not locked
           ansible.builtin.apt:
             name: "{{ item }}"
@@ -373,6 +396,23 @@
             - containerd.io
             - cgroupfs-mount
             - aufs-tools
+
+        - name: install packages only when the apt process is not locked
+          ansible.builtin.apt:
+            name: "{{ item }}"
+            state: present
+            update_cache: true
+            cache_valid_time: 3600
+            autoremove: true
+            autoclean: true
+          register: apt_action
+          retries: 100
+          until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+          loop:
+            - kata-runtime
+            - kata-proxy
+            - kata-shim
+          when: use_kata_containers
       when:
         - inventory_hostname in groups['app_servers']
         - use_docker

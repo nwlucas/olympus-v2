@@ -30,6 +30,21 @@ client {
     groups         = "{{ group_names|join(',') }}"
   }
 }
+{% endif %}
+
+{% if inventory_hostname not in groups['nomad_servers'] %}
+plugin "docker" {
+  config {
+    allow_privileged  = true
+    allow_caps        = ["all"]
+    extra_labels      = ["job_name", "job_id", "task_group_name", "task_name", "namespace", "node_name", "node_id"]
+
+    volumes {
+      enabled = true
+    }
+  }
+}
+{% endif %}
 
 {% if inventory_hostname not in groups['nomad_servers'] and nomad_drivers['raw_exec'] %}
 plugin "raw_exec" {
@@ -57,7 +72,6 @@ plugin "nomad-driver-podman" {
     }
   }
 }
-{% endif %}
 {% endif %}
 
 tls {
