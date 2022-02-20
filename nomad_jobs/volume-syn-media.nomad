@@ -22,5 +22,7 @@ mount_options {
 context {
   server  = "192.168.251.8"
   share   = "/volume1/MEDIA"
+  uid     = "1028"
+  gid     = "65536"
 }
 
