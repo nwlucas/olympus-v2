@@ -1,8 +1,8 @@
 type        = "csi"
 
-id          = "qnap-media"
-name        = "qnap-media"
-external_id = "qnap-media"
+id          = "qnap-config-jackett"
+name        = "qnap-config-jackett"
+external_id = "qnap-config-jackett"
 plugin_id   = "nfs-qnap"
 
 capability {
@@ -15,12 +15,8 @@ capability {
   attachment_mode = "file-system"
 }
 
-mount_options {
-  fs_type = "ext4"
-}
-
 context {
   server  = "192.168.251.7"
-  share   = "/MEDIA/MEDIA"
+  share   = "/share/MEDIA/data/app_configs/jackett"
 }
 

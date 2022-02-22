@@ -1,6 +1,8 @@
 variables {
-  uid = "1028"
-  gid = "65536"
+  uid = "1002"
+  gid = "1000"
+  umask = "002"
+  tz = "America/New_York"
 }
 
 
@@ -9,30 +11,60 @@ job "htpc" {
   type = "service"
 
   constraint {
-    attribute = "${node.class}"
-    value     = "host"
-  }
-
-  constraint {
     attribute = "${attr.cpu.arch}"
-    value     = "amd64"
-  }
-
-  constraint {
-    operator = "distinct_hosts"
-    value = true
+    value = "amd64"
   }
 
   group "collectors" {
-    volume "syn-media" {
+    volume "data" {
       type              = "csi"
-      source            = "syn-media"
+      source            = "qnap-data"
       read_only         = false
       attachment_mode   = "file-system"
       access_mode       = "multi-node-multi-writer"
 
       mount_options {
-        fs_type         = "ext4"
+        fs_type      = "ext4"
+        mount_flags   = ["noatime", "nfsvers=4", "nolock"]
+      }
+    }
+
+    volume "config-radarr" {
+      type              = "csi"
+      source            = "qnap-config-radarr"
+      read_only         = false
+      attachment_mode   = "file-system"
+      access_mode       = "multi-node-multi-writer"
+
+      mount_options {
+        fs_type      = "ext4"
+        mount_flags   = ["noatime", "nfsvers=4", "nolock"]
+      }
+    }
+
+    volume "config-lidarr" {
+      type              = "csi"
+      source            = "qnap-config-lidarr"
+      read_only         = false
+      attachment_mode   = "file-system"
+      access_mode       = "multi-node-multi-writer"
+
+      mount_options {
+        fs_type      = "ext4"
+        mount_flags   = ["noatime", "nfsvers=4", "nolock"]
+      }
+    }
+
+    volume "config-sonarr" {
+      type              = "csi"
+      source            = "qnap-config-sonarr"
+      read_only         = false
+      attachment_mode   = "file-system"
+      access_mode       = "multi-node-multi-writer"
+
+      mount_options {
+        fs_type      = "ext4"
+        mount_flags   = ["noatime", "nfsvers=4", "nolock"]
       }
     }
 
@@ -41,6 +73,10 @@ job "htpc" {
       port "radarr" { static = "7878" }
       port "sonarr" { static = "8989" }
       port "lidarr" { static = "8686" }
+
+      dns {
+        servers = ["127.0.0.1"]
+      }
     }
 
     restart {
@@ -63,24 +99,29 @@ job "htpc" {
     task "radarr-container" {
       driver = "docker"
       config {
-        image         = "quay.io/linuxserver.io/radarr"
+        image         = "quay.io/hotio/radarr"
+        ports         = ["radarr"]
       }
 
       volume_mount {
-        volume = "syn-media"
-        destination = "${NOMAD_ALLOC_DIR}/syn-media"
+        volume = "data"
+        destination = "/data"
+      }
+
+      volume_mount {
+        volume = "config-radarr"
+        destination = "/config"
       }
 
       env{
-        UID = var.uid
-        GID = var.gid
-        MOUNT_PATH = "${NOMAD_ALLOC_DIR}/syn-media"
+        PUID  = var.uid
+        PGID  = var.gid
+        TZ    = var.tz
       }
 
       service {
         name          = "radarr"
         tags          = ["radarr"]
-        address_mode  = "auto"
         port          = "radarr"
 
         meta {
@@ -110,23 +151,29 @@ job "htpc" {
       driver = "docker"
       config {
         image         = "quay.io/linuxserver.io/sonarr"
+        ports         = ["sonarr"]
       }
 
       volume_mount {
-        volume = "syn-media"
-        destination = "${NOMAD_ALLOC_DIR}/syn-media"
+        volume = "data"
+        destination = "/data"
+      }
+
+      volume_mount {
+        volume = "config-sonarr"
+        destination = "/config"
       }
 
       env{
-        UID = var.uid
-        GID = var.gid
-        MOUNT_PATH = "${NOMAD_ALLOC_DIR}/syn-media"
+        PUID  = var.uid
+        PGID  = var.gid
+        TZ    = var.tz
       }
 
       service {
         name = "sonarr"
         tags = ["sonarr"]
-        address_mode  = "auto"
+        port = "sonarr"
 
         meta {
           meta = "sonarr"
@@ -155,23 +202,29 @@ job "htpc" {
       driver = "docker"
       config {
         image         = "quay.io/linuxserver.io/lidarr"
+        ports         = ["lidarr"]
       }
 
       volume_mount {
-        volume = "syn-media"
-        destination = "${NOMAD_ALLOC_DIR}/syn-media"
+        volume = "data"
+        destination = "/data"
+      }
+
+      volume_mount {
+        volume = "config-lidarr"
+        destination = "/config"
       }
 
       env{
-        UID = var.uid
-        GID = var.gid
-        MOUNT_PATH = "${NOMAD_ALLOC_DIR}/syn-media"
+        PUID  = var.uid
+        PGID  = var.gid
+        TZ    = var.tz
       }
 
       service {
         name = "lidarr"
         tags = ["lidarr"]
-        address_mode  = "auto"
+        port = "lidarr"
 
         meta {
           meta = "lidarr"
@@ -199,6 +252,58 @@ job "htpc" {
   }
 
   group "indexers" {
+    volume "data-torrents" {
+      type              = "csi"
+      source            = "qnap-data-torrents"
+      read_only         = false
+      attachment_mode   = "file-system"
+      access_mode       = "multi-node-multi-writer"
+
+      mount_options {
+        fs_type      = "ext4"
+        mount_flags   = ["noatime", "nfsvers=4", "nolock"]
+      }
+    }
+
+    volume "data-usenet" {
+      type              = "csi"
+      source            = "qnap-data-usenet"
+      read_only         = false
+      attachment_mode   = "file-system"
+      access_mode       = "multi-node-multi-writer"
+
+      mount_options {
+        fs_type      = "ext4"
+        mount_flags   = ["noatime", "nfsvers=4", "nolock"]
+      }
+    }
+
+    volume "config-jackett" {
+      type              = "csi"
+      source            = "qnap-config-jackett"
+      read_only         = false
+      attachment_mode   = "file-system"
+      access_mode       = "multi-node-multi-writer"
+
+      mount_options {
+        fs_type      = "ext4"
+        mount_flags   = ["noatime", "nfsvers=4", "nolock"]
+      }
+    }
+
+    volume "config-hydra" {
+      type              = "csi"
+      source            = "qnap-config-nzbhydra2"
+      read_only         = false
+      attachment_mode   = "file-system"
+      access_mode       = "multi-node-multi-writer"
+
+      mount_options {
+        fs_type      = "ext4"
+        mount_flags   = ["noatime", "nfsvers=4", "nolock"]
+      }
+    }
+
     network {
       mode = "bridge"
       port "jackett" { static = "9117" }
@@ -226,11 +331,29 @@ job "htpc" {
       driver = "docker"
       config {
         image         = "quay.io/linuxserver.io/jackett"
+        ports         = ["jackett"]
+
         labels = {
           "nomad"         = "job"
           "htpc"          = "true"
           "media-server"  = "jackett"
         }
+      }
+
+      volume_mount {
+        volume = "data-torrents"
+        destination = "/downloads"
+      }
+
+      volume_mount {
+        volume = "config-jackett"
+        destination = "/config"
+      }
+
+      env{
+        PUID  = var.uid
+        PGID  = var.gid
+        TZ    = var.tz
       }
 
       service {
@@ -267,11 +390,29 @@ job "htpc" {
       driver = "docker"
       config {
         image         = "quay.io/linuxserver.io/nzbhydra2"
+        ports         = ["hydra"]
+
         labels = {
           "nomad"         = "job"
           "htpc"          = "true"
           "media-server"  = "hydra"
         }
+      }
+
+      volume_mount {
+        volume = "data-usenet"
+        destination = "/downloads"
+      }
+
+      volume_mount {
+        volume = "config-hydra"
+        destination = "/config"
+      }
+
+      env{
+        PUID  = var.uid
+        PGID  = var.gid
+        TZ    = var.tz
       }
 
       service {
@@ -287,6 +428,325 @@ job "htpc" {
         check {
           type      = "http"
           port      = "hydra"
+          path      = "/"
+          interval  = "5s"
+          timeout   = "10s"
+        }
+      }
+
+      resources {
+        cpu         = 1000
+        memory      = 1000
+      }
+
+      logs {
+        max_files     = 3
+        max_file_size = 10
+      }
+    }
+  }
+
+  group "downloaders" {
+    volume "data-torrents" {
+      type              = "csi"
+      source            = "qnap-data-torrents"
+      read_only         = false
+      attachment_mode   = "file-system"
+      access_mode       = "multi-node-multi-writer"
+
+      mount_options {
+        fs_type      = "ext4"
+        mount_flags   = ["noatime", "nfsvers=4", "nolock"]
+      }
+    }
+
+    volume "data-usenet" {
+      type              = "csi"
+      source            = "qnap-data-usenet"
+      read_only         = false
+      attachment_mode   = "file-system"
+      access_mode       = "multi-node-multi-writer"
+
+      mount_options {
+        fs_type      = "ext4"
+        mount_flags   = ["noatime", "nfsvers=4", "nolock"]
+      }
+    }
+
+    volume "config-qflood" {
+      type              = "csi"
+      source            = "qnap-config-qbitorrent"
+      read_only         = false
+      attachment_mode   = "file-system"
+      access_mode       = "multi-node-multi-writer"
+
+      mount_options {
+        fs_type      = "ext4"
+        mount_flags   = ["noatime", "nfsvers=4", "nolock"]
+      }
+    }
+
+    volume "config-sabnzbd" {
+      type              = "csi"
+      source            = "qnap-config-sabnzbd"
+      read_only         = false
+      attachment_mode   = "file-system"
+      access_mode       = "multi-node-multi-writer"
+
+      mount_options {
+        fs_type      = "ext4"
+        mount_flags   = ["noatime", "nfsvers=4", "nolock"]
+      }
+    }
+
+    volume "config-nzbget" {
+      type              = "csi"
+      source            = "qnap-config-nzbget"
+      read_only         = false
+      attachment_mode   = "file-system"
+      access_mode       = "multi-node-multi-writer"
+
+      mount_options {
+        fs_type      = "ext4"
+        mount_flags   = ["noatime", "nfsvers=4", "nolock"]
+      }
+    }
+
+    network {
+      mode = "bridge"
+      port "sabnzbd" { static = "8080" }
+      port "qflood-ui" { static = "8100" }
+      port "qflood-udp" { static = "3000" }
+    }
+
+    restart {
+      attempts  = 3
+      delay     = "30s"
+      interval  = "5m"
+      mode      = "fail"
+    }
+
+    update {
+      max_parallel      = 1
+      health_check      = "checks"
+      min_healthy_time  = "10s"
+      healthy_deadline  = "5m"
+      auto_revert       = true
+      canary            = 0
+      stagger           = "30s"
+    }
+
+    task "sabnzbd-container" {
+      driver = "docker"
+      config {
+        image         = "quay.io/linuxserver.io/sabnzbd"
+        ports         = ["sabnzbd"]
+
+        labels = {
+          "nomad"         = "job"
+          "htpc"          = "true"
+        }
+      }
+
+      volume_mount {
+        volume = "data-torrents"
+        destination = "/downloads"
+      }
+
+      volume_mount {
+        volume = "config-sabnzbd"
+        destination = "/config"
+      }
+
+      env{
+        PUID  = var.uid
+        PGID  = var.gid
+        TZ    = var.tz
+      }
+
+      service {
+        name          = "sabnzbd"
+        tags          = ["sabnzbd"]
+        port          = "sabnzbd"
+        address_mode  = "host"
+
+        meta {
+          meta = "sabnzbd"
+        }
+
+        check {
+          type      = "tcp"
+          port      = "sabnzbd"
+          path      = "/"
+          interval  = "5s"
+          timeout   = "10s"
+        }
+      }
+
+      resources {
+        cpu         = 1000
+        memory      = 1000
+      }
+
+      logs {
+        max_files     = 3
+        max_file_size = 10
+      }
+    }
+
+    task "qflood-container" {
+      driver = "docker"
+      config {
+        image         = "quay.io/hotio/qflood"
+        ports         = ["qflood-ui", "qflood-udp"]
+
+        labels = {
+          "nomad"         = "job"
+          "htpc"          = "true"
+        }
+      }
+
+      volume_mount {
+        volume = "data-torrents"
+        destination = "/downloads"
+      }
+
+      volume_mount {
+        volume = "config-qflood"
+        destination = "/config"
+      }
+
+      env{
+        PUID        = var.uid
+        PGID        = var.gid
+        UMASK       = var.umask
+        TZ          = var.tz
+        WEBUI_PORTS = "8100/tcp,3000/udp"
+        FLOOD_AUTH  ="false"
+      }
+
+      service {
+        name = "qflood"
+        tags = ["qflood"]
+        port = "qflood-ui"
+        address_mode = "host"
+
+        meta {
+          meta = "qflood"
+        }
+
+        check {
+          type      = "http"
+          port      = "qflood-ui"
+          path      = "/"
+          interval  = "5s"
+          timeout   = "10s"
+        }
+      }
+
+      resources {
+        cpu         = 1000
+        memory      = 1000
+      }
+
+      logs {
+        max_files     = 3
+        max_file_size = 10
+      }
+    }
+  }
+
+  group "players" {
+    volume "data-media" {
+      type              = "csi"
+      source            = "qnap-data-media"
+      read_only         = false
+      attachment_mode   = "file-system"
+      access_mode       = "multi-node-multi-writer"
+
+      mount_options {
+        fs_type      = "ext4"
+        mount_flags   = ["noatime", "nfsvers=4", "nolock"]
+      }
+    }
+
+    volume "config-stash" {
+      type              = "csi"
+      source            = "qnap-config-stash"
+      read_only         = false
+      attachment_mode   = "file-system"
+      access_mode       = "multi-node-multi-writer"
+
+      mount_options {
+        fs_type      = "ext4"
+        mount_flags   = ["noatime", "nfsvers=4", "nolock"]
+      }
+    }
+
+    network {
+      mode = "bridge"
+      port "stash" { static = "9999" }
+    }
+
+    restart {
+      attempts  = 3
+      delay     = "30s"
+      interval  = "5m"
+      mode      = "fail"
+    }
+
+    update {
+      max_parallel      = 1
+      health_check      = "checks"
+      min_healthy_time  = "10s"
+      healthy_deadline  = "5m"
+      auto_revert       = true
+      canary            = 0
+      stagger           = "30s"
+    }
+
+    task "stash-container" {
+      driver = "docker"
+      config {
+        image         = "quay.io/hotio/stash"
+        ports         = ["stash"]
+
+        labels = {
+          "nomad"         = "job"
+          "htpc"          = "true"
+        }
+      }
+
+      volume_mount {
+        volume = "data-media"
+        destination = "/media"
+      }
+
+      volume_mount {
+        volume = "config-stash"
+        destination = "/config"
+      }
+
+      env{
+        PUID  = var.uid
+        PGID  = var.gid
+        UMASK = var.umask
+        TZ    = var.tz
+      }
+
+      service {
+        name          = "stash"
+        tags          = ["stash"]
+        port          = "stash"
+        address_mode  = "host"
+
+        meta {
+          meta = "stash"
+        }
+
+        check {
+          type      = "tcp"
+          port      = "stash"
           path      = "/"
           interval  = "5s"
           timeout   = "10s"
