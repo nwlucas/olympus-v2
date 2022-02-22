@@ -18,19 +18,8 @@
         _system: "{{ ansible_facts['system']|lower }}"
       tags:
         - always
-    - name: set correct timezone
-      community.general.timezone:
-        name: America/New_York
-      tags:
-        - always
 
-    - name: set correct hostname
-      ansible.builtin.hostname:
-        name: "{{ inventory_hostname }}"
-        use: systemd
-      tags:
-        - always
-
+  tasks:
     - name: uninstall prerequisites
       ansible.builtin.apt:
         name: "{{ item }}"
@@ -51,6 +40,7 @@
             name: docker.service
             state: stopped
             enabled: false
+          when: services_state['ansible_facts']['services'] is search('docker')
 
         - name: remove docker service
           ansible.builtin.file:
@@ -59,6 +49,7 @@
           notify: reload systemd
           loop:
             - "docker.service"
+            - "docker.socket"
 
         - name: uninstall docker packages
           ansible.builtin.apt:
@@ -87,19 +78,47 @@
 
     - name: uninstall nomad agents
       block:
+        - name: detect if nomad service is running
+          ansible.builtin.systemd:
+            name: "nomad"
+          register: _nomad_service
+
         - name: stop nomad service
           ansible.builtin.systemd:
             name: nomad.service
             state: stopped
             enabled: false
+          when:
+            - _nomad_service is not skipped
+            - _nomad_service['status']['ActiveState'] == "active"
 
         - name: remove nomad service
           ansible.builtin.file:
-            path: "/etc/systemd/system/{{ item }}"
+            path: "/etc/systemd/system/nomad.service"
             state: "absent"
           notify: reload systemd
-          loop:
-            - "nomad.service"
+
+        - name: get running processes list from remote host
+          ignore_errors: yes
+          ansible.builtin.shell: "ps -few | grep 'nomad' | awk '{print $2}'"
+          register: running_processes
+
+        - name: kill running processes
+          ignore_errors: yes
+          ansible.builtin.shell: "kill {{ item }}"
+          with_items: "{{ running_processes.stdout_lines }}"
+
+        - name: check lingering processes
+          ansible.builtin.wait_for:
+            path: "/proc/{{ item }}/status"
+            state: absent
+          loop: "{{ running_processes.stdout_lines }}"
+          register: killing_nomad_processes
+
+        - name: force kill running processes
+          ignore_errors: yes
+          ansible.builtin.shell: "kill -9 {{ item }}"
+          with_items: "{{ killing_nomad_processes.results | select('failed') | map(attribute='item') | list }}"
 
         - name: remove Nomad configuration, binary and files
           ansible.builtin.file:
@@ -111,8 +130,6 @@
       when:
         - (inventory_hostname in groups['app_servers']) or (inventory_hostname in groups['nomad_servers'])
         - uninstall_nomad
-      tags:
-        - uninstall-nomad-agents
 
     - name: uninstall consul agents
       block:
@@ -141,8 +158,6 @@
       when:
         - (inventory_hostname in groups['app_servers']) or (inventory_hostname in groups['consul_servers'])
         - uninstall_consul
-      tags:
-        - uninstall-consul-agents
 
     - name: remove CNI plugins
       block:
@@ -177,8 +192,3 @@
       when:
         - inventory_hostname in groups['app_servers']
         - uninstall_cni
-      tags:
-        - uninstall-cni
-
-  tags:
-    - host-cleanup
