@@ -1,0 +1,86 @@
+---
+- name: fact and backend gathering
+  hosts: all
+  gather_facts: true
+  become: true
+  handlers:
+    - name: import handlers
+      ansible.builtin.import_tasks: ./handlers/main.yml
+  tasks:
+    - name: Gather facts from ALL hosts (regardless of limit or tags)
+      ansible.builtin.setup:
+      tags:
+        - always
+
+    - name: install packages only when the apt process is not locked
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+        autoremove: true
+        autoclean: true
+      register: apt_action
+      retries: 100
+      until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+      loop:
+        - python3-pip
+        - net-tools
+        - dmidecode
+      tags:
+        - always
+
+    - name: ensure pip packages are installed
+      ansible.builtin.pip:
+        name: boto3
+        executable: pip3
+        umask: "0022"
+      tags:
+        - always
+
+    - name: gathering terraform outputs
+      terraform_backend_info:
+        bucket: "{{ aws_bucket }}"
+        object: "olympus-v2"
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_access_key: "{{ aws_secret_access_key }}"
+        aws_region: "{{ aws_region }}"
+      become: false
+      register: "olympus_v2"
+      check_mode: false
+      tags:
+        - always
+        - terraform_backend_info
+
+    - name: set facts from backend info
+      ansible.builtin.set_fact:
+        _olympus_v2: "{{ olympus_v2['vars'] }}"
+      check_mode: false
+      tags:
+        - always
+
+    - name: print terraform outputs
+      ansible.builtin.copy:
+        content: "{{ _olympus_v2 | to_nice_json }}"
+        dest: "./backend_info/{{ inventory_hostname }}.json"
+        mode: "0744"
+      when: print_terraform_backend
+      delegate_to: localhost
+      become: false
+      check_mode: false
+      tags:
+        - terraform_backend_info
+
+    - name: show terraform outputs
+      ansible.builtin.debug:
+        var: olympus_v2
+      when: terraform_backend_debug is defined and terraform_backend_debug
+      check_mode: false
+      tags:
+        - terraform_backend_info
+
+- import_playbook: nomad.yml
+  when: use_nomad
+
+- import_playbook: k3s.yml
+  when: use_k3s
