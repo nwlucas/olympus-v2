@@ -1,0 +1,184 @@
+---
+- name: host cleanup
+  hosts: all
+  gather_facts: true
+  become: true
+  handlers:
+    - name: import handlers
+      ansible.builtin.import_tasks: ./handlers/main.yml
+  pre_tasks:
+    - name: set _arch fact
+      ansible.builtin.set_fact:
+        _arch: "{%- if ansible_facts['architecture'] == 'aarch64' %}arm64{%- else %}amd64{%- endif %}"
+      tags:
+        - always
+
+    - name: set _system fact
+      ansible.builtin.set_fact:
+        _system: "{{ ansible_facts['system']|lower }}"
+      tags:
+        - always
+    - name: set correct timezone
+      community.general.timezone:
+        name: America/New_York
+      tags:
+        - always
+
+    - name: set correct hostname
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname }}"
+        use: systemd
+      tags:
+        - always
+
+    - name: uninstall prerequisites
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: "absent"
+        update_cache: true
+        autoremove: true
+        autoclean: true
+      loop: "{{ hostprep_install_dependencies | default([]) }}"
+      when:
+        - uninstall_hostprep
+      tags:
+        - install-host-prereqs
+
+    - name: uninstall docker
+      block:
+        - name: stop docker service
+          ansible.builtin.systemd:
+            name: docker.service
+            state: stopped
+            enabled: false
+
+        - name: remove docker service
+          ansible.builtin.file:
+            path: "/etc/systemd/system/{{ item }}"
+            state: "absent"
+          notify: reload systemd
+          loop:
+            - "docker.service"
+
+        - name: uninstall docker packages
+          ansible.builtin.apt:
+            name: "{{ item }}"
+            state: "absent"
+            update_cache: true
+            autoremove: true
+            autoclean: true
+          loop:
+            - "docker-ce"
+            - "docker-ce-cli"
+            - "containerd.io"
+
+        - name: remove docker configuration, binary and files
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: "absent"
+          loop:
+            - "/var/lib/docker"
+            - "/var/lib/containerd"
+            - "/etc/docker"
+      when:
+        - inventory_hostname in groups['app_servers']
+        - use_docker
+        - uninstall_docker
+
+    - name: uninstall nomad agents
+      block:
+        - name: stop nomad service
+          ansible.builtin.systemd:
+            name: nomad.service
+            state: stopped
+            enabled: false
+
+        - name: remove nomad service
+          ansible.builtin.file:
+            path: "/etc/systemd/system/{{ item }}"
+            state: "absent"
+          notify: reload systemd
+          loop:
+            - "nomad.service"
+
+        - name: remove Nomad configuration, binary and files
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: "absent"
+          loop:
+            - "{{ nomad_config_path|default('/opt/nomad') }}"
+            - "{{ hashi_binary_dir|default('/usr/local/bin') }}/nomad"
+      when:
+        - (inventory_hostname in groups['app_servers']) or (inventory_hostname in groups['nomad_servers'])
+        - uninstall_nomad
+      tags:
+        - uninstall-nomad-agents
+
+    - name: uninstall consul agents
+      block:
+        - name: stop consul service
+          ansible.builtin.systemd:
+            name: consul.service
+            state: stopped
+            enabled: false
+
+        - name: remove consul service
+          ansible.builtin.file:
+            path: "/etc/systemd/system/{{ item }}"
+            state: "absent"
+          notify: reload systemd
+          loop:
+            - "consul.service"
+
+        - name: remove consul configuration, binary and files
+          ansible.builtin.file:
+            path: "{{ item }}"
+            recurse: true
+            state: "absent"
+          loop:
+            - "{{ consul_config_path|default('/opt/consul') | dirname }}"
+            - "{{ hashi_binary_dir|default('/usr/local/bin') | dirname }}/consul"
+      when:
+        - (inventory_hostname in groups['app_servers']) or (inventory_hostname in groups['consul_servers'])
+        - uninstall_consul
+      tags:
+        - uninstall-consul-agents
+
+    - name: remove CNI plugins
+      block:
+        - name: make CNI directories
+          ansible.builtin.file:
+            path: "{{ item.dir }}"
+            recurse: true
+            state: absent
+          loop:
+            - dir: "/opt/cni"
+              mode: "0755"
+
+        - name: (1st pass) detect cni conf _cni_cnf_files
+          ansible.builtin.find:
+            paths: "/etc/cni/net.d"
+          register: _cni_cnf_files
+
+        - name: disable and stop cni-dhcp
+          ansible.builtin.systemd:
+            name: cni-dhcp.socket
+            state: stopped
+            enabled: false
+
+        - name: remove DHCP daemon service and socket for CNI
+          ansible.builtin.file:
+            path: "/etc/systemd/system/{{ item }}"
+            state: "absent"
+          notify: reload systemd
+          loop:
+            - "cni-dhcp.service"
+            - "cni-dhcp.socket"
+      when:
+        - inventory_hostname in groups['app_servers']
+        - uninstall_cni
+      tags:
+        - uninstall-cni
+
+  tags:
+    - host-cleanup

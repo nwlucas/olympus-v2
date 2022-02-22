@@ -1,0 +1,16 @@
+- name: vault special tasks
+  hosts: vault_servers
+  gather_facts: true
+  become: true
+  handlers:
+    - import_tasks: ./handlers/main.yml
+  roles:
+    - role: vault_init
+      tags:
+        - vault-init
+        - never
+
+    - role: vault_unseal
+      tags:
+        - vault-unseal
+        - never

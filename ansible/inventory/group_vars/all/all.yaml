@@ -34,3 +34,11 @@ nomad_drivers:
 cni:
   url: "https://github.com/containernetworking/plugins/releases/download/"
   version: "1.0.1"
+
+uninstall_hostprep: false
+uninstall_cni: false
+uninstall_docker: false
+uninstall_nomad: false
+uninstall_consul: false
+uninstall_vault: false
+uninstall_cloudflared: false
