@@ -107,6 +107,8 @@
           ignore_errors: yes
           ansible.builtin.shell: "kill {{ item }}"
           with_items: "{{ running_processes.stdout_lines }}"
+          tags:
+            - skip_ansible_lint
 
         - name: check lingering processes
           ansible.builtin.wait_for:
@@ -119,6 +121,8 @@
           ignore_errors: yes
           ansible.builtin.shell: "kill -9 {{ item }}"
           with_items: "{{ killing_nomad_processes.results | select('failed') | map(attribute='item') | list }}"
+          tags:
+            - skip_ansible_lint
 
         - name: remove Nomad configuration, binary and files
           ansible.builtin.file:
@@ -158,6 +162,65 @@
       when:
         - (inventory_hostname in groups['app_servers']) or (inventory_hostname in groups['consul_servers'])
         - uninstall_consul
+
+    - name: uninstall vault agents
+      block:
+        - name: detect if vault service is running
+          ansible.builtin.systemd:
+            name: "vault"
+          register: _vault_service
+
+        - name: stop vault service
+          ansible.builtin.systemd:
+            name: vault.service
+            state: stopped
+            enabled: false
+          when:
+            - _vault_service is not skipped
+            - _vault_service['status']['ActiveState'] == "active"
+
+        - name: remove vault service
+          ansible.builtin.file:
+            path: "/etc/systemd/system/vault.service"
+            state: "absent"
+          notify: reload systemd
+
+        - name: get running processes list from remote host
+          ignore_errors: yes
+          ansible.builtin.shell: "ps -few | grep 'vault' | awk '{print $2}'"
+          register: running_processes
+
+        - name: kill running processes
+          ignore_errors: yes
+          ansible.builtin.shell: "kill {{ item }}"
+          with_items: "{{ running_processes.stdout_lines }}"
+          tags:
+            - skip_ansible_lint
+
+        - name: check lingering processes
+          ansible.builtin.wait_for:
+            path: "/proc/{{ item }}/status"
+            state: absent
+          loop: "{{ running_processes.stdout_lines }}"
+          register: killing_vault_processes
+
+        - name: force kill running processes
+          ignore_errors: yes
+          ansible.builtin.shell: "kill -9 {{ item }}"
+          with_items: "{{ killing_vault_processes.results | select('failed') | map(attribute='item') | list }}"
+          tags:
+            - skip_ansible_lint
+
+        - name: remove vault configuration, binary and files
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: "absent"
+          loop:
+            - "{{ vault_config_path|default('/opt/vault') }}"
+            - "{{ hashi_binary_dir|default('/usr/local/bin') }}/vault"
+      when:
+        - inventory_hostname in groups['vault_servers']
+        - uninstall_vault
 
     - name: remove CNI plugins
       block:
