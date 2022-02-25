@@ -17,6 +17,8 @@
     - net-tools
     - libio-socket-ssl-perl
     - libdata-validate-ip-perl
+  tags:
+    - skip_ansible_lint
 
 - name: install packages only when the apt process is not locked
   ansible.builtin.apt:
@@ -32,6 +34,8 @@
   loop:
     - ddclient={{ ddclient_version }}*
   when: ansible_facts['architecture'] == 'aarch64'
+  tags:
+    - skip_ansible_lint
 
 - name: manual install
   block:

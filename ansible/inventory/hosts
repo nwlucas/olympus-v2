@@ -32,14 +32,14 @@ nomad_servers
 vault_servers
 consul_servers
 
-[master]
+[k3s_masters]
 rpi-[01:05].nwlnexus.net
 
-[node]
+[k3s_nodes]
 janus-[01:02].nwlnexus.net
 hades.nwlnexus.net
 rpi-06.nwlnexus.net
 
 [k3s_cluster:children]
-master
-node
+k3s_masters
+k3s_nodes

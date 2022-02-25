@@ -79,8 +79,305 @@
       tags:
         - terraform_backend_info
 
-- import_playbook: nomad.yml
-  when: use_nomad
+- name: host preparation
+  hosts: all
+  gather_facts: true
+  become: true
+  handlers:
+    - name: import handlers
+      ansible.builtin.import_tasks: ./handlers/main.yml
+  pre_tasks:
+    - name: set _arch fact
+      ansible.builtin.set_fact:
+        _arch: "{%- if ansible_facts['architecture'] == 'aarch64' %}arm64{%- else %}amd64{%- endif %}"
+      tags:
+        - always
 
-- import_playbook: k3s.yml
-  when: use_k3s
+    - name: set _system fact
+      ansible.builtin.set_fact:
+        _system: "{{ ansible_facts['system']|lower }}"
+      tags:
+        - always
+
+    - name: add authorized keys
+      ansible.posix.authorized_key:
+        user: "{{ item }}"
+        state: present
+        key: "{{ _olympus_v2['ssh_key']['pub'] }}"
+      loop:
+        - "ubuntu"
+      tags:
+        - ssh-keys
+
+    - name: set correct timezone
+      community.general.timezone:
+        name: America/New_York
+      tags:
+        - always
+
+    - name: set correct hostname
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname }}"
+        use: systemd
+      tags:
+        - always
+
+    - name: install prerequisites
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        update_cache: true
+        autoremove: true
+        autoclean: true
+      loop: "{{ hostprep_install_dependencies | default([]) }}"
+      tags:
+        - install-host-prereqs
+
+    - name: configure modules
+      block:
+        - name: set sysctl settings
+          ansible.builtin.sysctl:
+            name: "{{ item['name'] }}"
+            value: "{{ item['value'] }}"
+            state: present
+            sysctl_file: /etc/sysctl.d/50-{{ ansible_facts['hostname'] }}.conf
+            sysctl_set: true
+          loop:
+            - name: net.ipv4.ip_forward
+              value: "1"
+            - name: net.bridge.bridge-nf-call-iptables
+              value: "1"
+            - name: net.bridge.bridge-nf-call-ip6tables
+              value: "1"
+            - name: net.bridge.bridge-nf-call-arptables
+              value: "1"
+      when:
+        - inventory_hostname in groups['app_servers']
+      tags:
+        - setup-modules
+
+    - name: place CNI plugins
+      block:
+        - name: make CNI directories
+          ansible.builtin.file:
+            path: "{{ item.dir }}"
+            owner: "{{ item.owner }}"
+            group: "{{ item.group }}"
+            mode: "{{ item.mode }}"
+            state: directory
+          loop:
+            - dir: "/opt/cni"
+              owner: "root"
+              group: "root"
+              mode: "0755"
+            - dir: "/opt/cni/config"
+              owner: "root"
+              group: "root"
+              mode: "0755"
+            - dir: "/opt/cni/bin"
+              owner: "root"
+              group: "root"
+              mode: "0755"
+            - dir: "/etc/cni/net.d"
+              owner: "root"
+              group: "root"
+              mode: "0755"
+
+        - name: get and extract CNI binaries
+          ansible.builtin.unarchive:
+            remote_src: true
+            src: "{{ cni['url'] }}v{{ cni['version'] }}/cni-plugins-{{ _system }}-{{ _arch }}-v{{ cni['version'] }}.tgz"
+            dest: "/opt/cni/bin"
+            mode: "0755"
+          tags:
+            - skip_ansible_lint
+
+        - name: (1st pass) detect cni conf _cni_cnf_files
+          ansible.builtin.find:
+            paths: "/etc/cni/net.d"
+          register: _cni_cnf_files
+
+        - name: config cni for each app network as needed
+          ansible.builtin.include_tasks:
+            file: tasks/_special_cni_config.yml
+          loop: "{{ app_networks }}"
+          loop_control:
+            loop_var: app_net
+          when:
+            - app_networks is defined
+            - app_networks|length > 0
+
+        - name: template out DHCP daemon service and socket for CNI
+          ansible.builtin.template:
+            src: "{{ item }}"
+            dest: "/etc/systemd/system/{{ item | basename | splitext | first }}"
+            mode: "0644"
+          notify: reload systemd
+          loop:
+            - "cni/cni-dhcp.service.j2"
+            - "cni/cni-dhcp.socket.j2"
+
+        - name: Enable and start cni-dhcp
+          ansible.builtin.systemd:
+            name: cni-dhcp.socket
+            state: started
+            enabled: true
+      when:
+        - inventory_hostname in groups['app_servers']
+      tags:
+        - install-cni
+
+    - name: install and configure Docker
+      block:
+        - name: add docker apt key
+          ansible.builtin.apt_key:
+            id: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+            url: "https://download.docker.com/linux/ubuntu/gpg"
+            keyring: "/usr/share/keyrings/docker-archive-keyring.gpg"
+            state: present
+
+        - name: Add Docker repository into sources list using specified filename
+          ansible.builtin.apt_repository:
+            repo: "deb [arch={{ _arch }} signed-by={{ _keyring }}] https://download.docker.com/linux/ubuntu {{ _release }} stable"
+            state: present
+            filename: docker-ce
+          vars:
+            _keyring: "/usr/share/keyrings/docker-archive-keyring.gpg"
+            _arch: "{%- if ansible_facts['architecture'] == 'aarch64' %}arm64{%- else %}amd64{%- endif %}"
+            _release: "{{ ansible_distribution_release|lower }}"
+          tags:
+            - skip_ansible_lint
+
+        - name: add kata-containers apt key
+          ansible.builtin.apt_key:
+            url: "{{ _repo }}:/x86_64:/master/xUbuntu_20.04/Release.key"
+            keyring: "/usr/share/keyrings/kata-containers-keyring.gpg"
+            state: present
+          vars:
+            _repo: "http://download.opensuse.org/repositories/home:/katacontainers:/releases"
+          when: use_kata_containers
+          tags:
+            - skip_ansible_lint
+
+        - name: Add kata-containers repository into sources list using specified filename
+          ansible.builtin.copy:
+            content: "deb [arch=amd64 signed-by={{ _keyring }}] {{ _repo }}:/x86_64/master/xUbuntu_20.04/ /"
+            mode: "0644"
+            dest: "/etc/apt/sources.list.d/kata-containers.list"
+          vars:
+            _repo: "http://download.opensuse.org/repositories/home:/katacontainers:/releases"
+            _keyring: "/usr/share/keyrings/kata-containers-keyring.gpg"
+          when: use_kata_containers
+          tags:
+            - skip_ansible_lint
+
+        - name: install packages only when the apt process is not locked
+          ansible.builtin.apt:
+            name: "{{ item }}"
+            state: present
+            update_cache: true
+            cache_valid_time: 3600
+            autoremove: true
+            autoclean: true
+          register: apt_action
+          retries: 100
+          until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+          loop:
+            - docker-ce
+            - docker-ce-cli
+            - containerd.io
+            - cgroupfs-mount
+            - aufs-tools
+
+        - name: install packages only when the apt process is not locked
+          ansible.builtin.apt:
+            name: "{{ item }}"
+            state: present
+            update_cache: true
+            cache_valid_time: 3600
+            autoremove: true
+            autoclean: true
+          register: apt_action
+          retries: 100
+          until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+          loop:
+            - kata-runtime
+            - kata-proxy
+            - kata-shim
+          when: use_kata_containers
+      when:
+        - inventory_hostname in groups['app_servers']
+        - use_docker
+      tags:
+        - setup-docker
+
+  roles:
+    - role: ddclient_install
+      when: install_ddclient
+      tags: ddclient-install
+
+    - role: certbot_install
+      when: install_certbot
+      tags: certbot-install
+
+    - role: ubnt_install
+      when: "'ubnt_servers' in group_names"
+      tags: ubnt-install
+
+    - role: cloudflare_tunnel
+      when: "'cloudflared_nodes' in group_names"
+      tags:
+        - cloudflared-install
+        - cf-install
+
+    - role: traefik_install
+      when:
+        - "'cloudflared_nodes' in group_names"
+        - install_traefik
+      tags:
+        - traefik-install
+        - traefik-setup
+        - traefik-cleanup
+        - traefik-config
+
+    - role: vault_install
+      when: "'vault_servers' in group_names"
+      vars:
+        vault_certs: "{{ _olympus_v2['vault_hosts'] }}"
+        vault_ca: "{{ _olympus_v2['hashi_cas'] }}"
+      tags:
+        - vault-install
+        - vault-certs
+        - vault-config
+        - hashi-stack
+
+    - role: consul_install
+      vars:
+        consul_certs: "{{ _olympus_v2['consul_hosts'] }}"
+        consul_ca: "{{ _olympus_v2['hashi_cas'] }}"
+        consul_encrypt_token: "{{ _olympus_v2['consul_hosts']['consul_secret'] }}"
+      tags:
+        - consul-install
+        - consul-certs
+        - consul-config
+        - hashi-stack
+
+    - role: nomad_install
+      vars:
+        nomad_certs: "{{ _olympus_v2['nomad_hosts'] }}"
+        nomad_ca: "{{ _olympus_v2['hashi_cas'] }}"
+        nomad_encrypt_token: "{{ _olympus_v2['nomad_hosts']['nomad_secret'] }}"
+        nomad_log_level: "debug"
+      when:
+        - use_nomad
+        - ("'nomad_servers' in group_names") or ("'app_servers in group_names'")
+      tags:
+        - nomad-install
+        - nomad-certs
+        - nomad-config
+        - hashi-stack
+
+    - role: xanmanning.k3s
+      when:
+        - use_k3s
+        - "'k3s_cluster' in group_names"
+      tags: k3s-install

@@ -102,6 +102,8 @@
           ignore_errors: yes
           ansible.builtin.shell: "ps -few | grep 'nomad' | awk '{print $2}'"
           register: running_processes
+          tags:
+            - skip_ansible_lint
 
         - name: kill running processes
           ignore_errors: yes
@@ -189,6 +191,8 @@
           ignore_errors: yes
           ansible.builtin.shell: "ps -few | grep 'vault' | awk '{print $2}'"
           register: running_processes
+          tags:
+            - skip_ansible_lint
 
         - name: kill running processes
           ignore_errors: yes
