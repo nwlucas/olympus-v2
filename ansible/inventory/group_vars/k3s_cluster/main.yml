@@ -1,20 +1,2 @@
-k3s_become: true
-k3s_skip_validation: false
-k3s_skip_env_checks: false
-k3s_install_hard_links: false
-
-k3s_registration_address: "https://k3s.nwlnexus.net:6443"
-k3s_service_after: []
-k3s_service_env_file: false
-
-k3s_server:
-  datastore-endpoint: "postgres://{{ vault_postgres_user }}:{{ vault_postgres_pass }}@qnap.nwlnexus.net:5432/k3sdb"
-  cluster-cidr: "172.20.0.0/16"
-  service-cidr: "172.21.0.0/16"
-  flannel-backend: "wireguard"
-
-k3s_agent:
-  with-node-id: true
-
-k3s_server_manifests_urls: []
-k3s_server_pod_manifests_urls: []
+---
+k3s_registration_vip: "k3s.nwlnexus.net"

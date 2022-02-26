@@ -122,3 +122,9 @@ output "cloudflare_tunnel_regions" {
 output "cloudflare_tunnel_api" {
   value = flatten([for k, v in data.dns_a_record_set.cloudflare_tunnel_api : v.addrs])
 }
+
+output "k3s_cluster" {
+  value = {
+    "cluster_token" = random_id.k3s_token.b64_std
+  }
+}

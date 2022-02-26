@@ -33,3 +33,13 @@ resource "aws_s3_bucket_object" "nomad_secret" {
   key     = "/hashi/nomad_secret"
   content = random_id.nomad_secret.b64_std
 }
+
+resource "random_id" "k3s_token" {
+  byte_length = 32
+}
+
+resource "aws_s3_bucket_object" "k3s_token" {
+  bucket  = var.AWS_BUCKET
+  key     = "/k3s/k3s_token"
+  content = random_id.k3s_token.b64_std
+}
