@@ -125,6 +125,7 @@ output "cloudflare_tunnel_api" {
 
 output "k3s_cluster" {
   value = {
-    "cluster_token" = random_id.k3s_token.b64_std
+    "server_token" = random_id.k3s_server_token.b64_std
+    "agent_token"  = random_id.k3s_agent_token.b64_std
   }
 }

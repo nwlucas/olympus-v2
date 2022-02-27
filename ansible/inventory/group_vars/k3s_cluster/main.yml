@@ -1,2 +1,3 @@
 ---
 k3s_registration_vip: "k3s.nwlnexus.net"
+k3s_flannel_backend: "wireguard"

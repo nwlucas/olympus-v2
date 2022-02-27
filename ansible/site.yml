@@ -134,6 +134,27 @@
 
     - name: configure modules
       block:
+        - name: load required kernel modules
+          community.general.modprobe:
+            name: "{{ item }}"
+            state: present
+          loop:
+            - "overlay"
+            - "br_netfilter"
+
+        - name: remove incorrect modprobe file if found
+          ansible.builtin.file:
+            path: "/etc/modprobe.d/{{ ansible_facts['hostname'] }}.conf"
+            state: absent
+
+        - name: place correct modprobe file
+          ansible.builtin.copy:
+            content: |
+              overlay
+              br_netfilter
+            dest: "/etc/modules-load.d/{{ ansible_facts['hostname'] }}-containers.conf"
+            mode: "0644"
+
         - name: set sysctl settings
           ansible.builtin.sysctl:
             name: "{{ item['name'] }}"
@@ -156,26 +177,52 @@
       tags:
         - setup-modules
 
-  roles:
-    - role: ddclient_install
+  tasks:
+    - name: install ddclient
+      ansible.builtin.include_role:
+        name: ddclient_install
+        apply:
+          tags:
+            - ddclient-install
       when: install_ddclient
-      tags: ddclient-install
+      tags:
+        - ddclient-install
 
-    - role: certbot_install
+    - name: install certbot
+      ansible.builtin.include_role:
+        name: certbot_install
+        apply:
+          tags:
+            - certbot-install
       when: install_certbot
-      tags: certbot-install
+      tags:
+        - certbot-install
 
-    - role: ubnt_install
+    - name: install ubnt
+      ansible.builtin.include_role:
+        name: ubnt_install
+        apply:
+          tags:
+            - ubnt-install
       when: inventory_hostname in groups['ubnt_servers']
-      tags: ubnt-install
+      tags:
+        - ubnt-install
 
-    - role: cloudflare_tunnel
+    - name: install cloudflare tunnel
+      ansible.builtin.include_role:
+        name: cloudflare_tunnel
+        apply:
+          tags:
+            - cloudflared-install
+            - cf-install
       when: inventory_hostname in groups['cloudflared_nodes']
       tags:
         - cloudflared-install
         - cf-install
 
-    - role: traefik_install
+    - name: install traefik on host
+      ansible.builtin.include_role:
+        name: traefik_install
       when:
         - inventory_hostname in groups['cloudflared_nodes']
         - install_traefik
@@ -185,26 +232,34 @@
         - traefik-cleanup
         - traefik-config
 
-- name: fact and backend gathering
+- name: install consul cluster
   hosts: consul_servers,app_servers
   gather_facts: true
   become: true
   handlers:
     - name: import handlers
       ansible.builtin.import_tasks: ./handlers/main.yml
-  roles:
-    - role: consul_install
+  tasks:
+    - name: setup consul cluster
+      ansible.builtin.include_role:
+        name: consul_install
+        apply:
+          tags:
+            - consul-install
+            - consul-certs
+            - consul-config
+            - hashi-stack
       vars:
         consul_certs: "{{ _olympus_v2['consul_hosts'] }}"
         consul_ca: "{{ _olympus_v2['hashi_cas'] }}"
         consul_encrypt_token: "{{ _olympus_v2['consul_hosts']['consul_secret'] }}"
-      tags:
-        - consul-install
-        - consul-certs
-        - consul-config
-        - hashi-stack
+  tags:
+    - consul-install
+    - consul-certs
+    - consul-config
+    - hashi-stack
 
-- name: fact and backend gathering
+- name: install nomad cluster
   hosts: nomad_servers,app_servers
   gather_facts: true
   become: true
@@ -279,6 +334,7 @@
             state: started
             enabled: true
       when:
+        - use_nomad
         - inventory_hostname in groups['app_servers']
       tags:
         - install-cni
@@ -364,10 +420,19 @@
       when:
         - inventory_hostname in groups['app_servers']
         - use_docker
+        - use_nomad
       tags:
         - setup-docker
-  roles:
-    - role: nomad_install
+  tasks:
+    - name: setup nomad cluster
+      ansible.builtin.include_role:
+        name: nomad_install
+        apply:
+          tags:
+            - nomad-install
+            - nomad-certs
+            - nomad-config
+            - hashi-stack
       vars:
         nomad_certs: "{{ _olympus_v2['nomad_hosts'] }}"
         nomad_ca: "{{ _olympus_v2['hashi_cas'] }}"
@@ -375,13 +440,13 @@
         nomad_log_level: "debug"
       when:
         - use_nomad
-      tags:
-        - nomad-install
-        - nomad-certs
-        - nomad-config
-        - hashi-stack
+  tags:
+    - nomad-install
+    - nomad-certs
+    - nomad-config
+    - hashi-stack
 
-- name: fact and backend gathering
+- name: install k3s cluster
   hosts: k3s_cluster
   gather_facts: true
   become: true
@@ -390,21 +455,73 @@
       ansible.builtin.import_tasks: ./handlers/main.yml
   pre_tasks:
     - name: Test for raspberry pi /proc/cpuinfo
-      command: grep -E "Raspberry Pi|BCM2708|BCM2709|BCM2835|BCM2836" /proc/cpuinfo
+      ansible.builtin.command: grep -E "Raspberry Pi|BCM2708|BCM2709|BCM2835|BCM2836" /proc/cpuinfo
       register: grep_cpuinfo_raspberrypi
       failed_when: false
       changed_when: false
 
     - name: Test for raspberry pi /proc/device-tree/model
-      command: grep -E "Raspberry Pi" /proc/device-tree/model
+      ansible.builtin.command: grep -E "Raspberry Pi" /proc/device-tree/model
       register: grep_device_tree_model_raspberrypi
       failed_when: false
       changed_when: false
 
+    - name: Test for Supermicro hosts via dmidecode
+      ansible.builtin.shell:
+        cmd: set -o pipefail && sudo dmidecode -t system | grep -E "Supermicro"
+        executable: /usr/bin/bash
+      register: dmidecode_supermicro
+      failed_when: false
+      changed_when: false
+
+    - name: Test for Dell hosts via dmidecode
+      ansible.builtin.shell:
+        cmd: set -o pipefail && sudo dmidecode -t system | grep -E "Dell Inc."
+        executable: /usr/bin/bash
+      register: dmidecode_dell
+      failed_when: false
+      changed_when: false
+
     - name: Set raspberry_pi fact to true
-      set_fact:
+      ansible.builtin.set_fact:
         raspberry_pi: true
       when: grep_cpuinfo_raspberrypi.rc == 0 or grep_device_tree_model_raspberrypi.rc == 0
+
+    - name: Set supermicro fact to true
+      ansible.builtin.set_fact:
+        supermicro: true
+      when: dmidecode_supermicro.rc == 0
+
+    - name: Set dell fact to true
+      ansible.builtin.set_fact:
+        dell: true
+      when: dmidecode_dell.rc == 0
+
+    - name: Enable cgroup via boot commandline if not already enabled for Ubuntu on a Raspberry Pi
+      ansible.builtin.lineinfile:
+        path: /boot/firmware/cmdline.txt
+        backrefs: true
+        regexp: '^((?!.*\bcgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory\b).*)$'
+        line: '\1 cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory'
+      notify: reboot
+      when: raspberry_pi|default(false)
+
+    - name: Enable cgroup via grub if not already enabled for Ubuntu
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        backrefs: true
+        regexp: '^GRUB_CMDLINE_LINUX=\"((?!.*\bsystemd\.unified_cgroup_hierarchy=1\b).*)\"$'
+        line: 'GRUB_CMDLINE_LINUX=\"\1 systemd\.unified_cgroup_heirarchy=1\"'
+      notify:
+        - update_grub
+        - reboot
+      when: supermicro|default(false) or dell|default(false)
+
+    - name: Create /etc/systemd/system/user@.service.d directory if it does not exist
+      ansible.builtin.file:
+        path: /etc/systemd/system/user@.service.d
+        state: directory
+        mode: "0755"
 
     - name: enabling cpu, cpuset and i/o delegation
       ansible.builtin.copy:
@@ -413,31 +530,73 @@
           Delegate=cpu cpuset io memory pids
         dest: "/etc/systemd/system/user@.service.d/delegate.conf"
         mode: "0644"
-      notify: systemd-reload
-  roles:
-    - role: xanmanning.k3s
+      notify:
+        - systemd-reload
+        - reboot
+
+    - name: install wireguard for flannel
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        update_cache: true
+        autoremove: true
+        autoclean: true
+      when: k3s_flannel_backend == "wireguard"
+      loop:
+        - "wireguard"
+  tasks:
+    - name: create consul service for k3s server nodes
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:8500/v1/agent/service/register?replace-existing-checks=true"
+        method: POST
+        body_format: json
+        return_content: true
+        status_code: [200, 202]
+        removes: "/tmp/k3s-service-consul.json"
+      when: inventory_hostname in groups['k3s_masters']
+
+    - name: template out env variables
+      ansible.builtin.template:
+        src: "env.j2"
+        dest: "/etc/default/k3s"
+        mode: "0644"
+      vars:
+        envs:
+          - name: K3S_TOKEN
+            value: "{{ _olympus_v2['k3s_cluster']['server_token'] }}"
+          - name: K3S_AGENT_TOKEN
+            value: "{{ _olympus_v2['k3s_cluster']['agent_token'] }}"
+
+    - name: setup k3s cluster
+      ansible.builtin.include_role:
+        name: xanmanning.k3s
+        apply:
+          tags:
+            - k3s-install
       vars:
         k3s_become: true
         k3s_skip_validation: false
         k3s_skip_env_checks: false
         k3s_install_hard_links: false
+        k3s_use_experimental: true
         k3s_registration_address: "{{ k3s_registration_vip }}"
         k3s_service_after: []
         k3s_server_manifests_urls: []
         k3s_server_pod_manifests_urls: []
-        k3s_service_env_file: false
+        k3s_service_env_file: "/etc/default/k3s"
         k3s_server:
-          datastore-endpoint: "postgres://{{ vault_postgres_user }}:{{ vault_postgres_pass }}@qnap.nwlnexus.net:5432/k3sdb"
-          cluster-cidr: "172.20.0.0/16"
-          service-cidr: "172.21.0.0/16"
-          cluster-dns: "{{ k3s_server['service-cidr'] | ansible.netcommon.ipaddr('net') | ansible.netcommon.ipaddr('10') | ansible.netcommon.ipaddr('host') }}"
-          flannel-backend: "wireguard"
-          tls_san: "{{ k3s_registration_vip }}"
-          token: "{{ _olympus_v2['k3s_cluster']['cluster_token'] }}"
+          datastore-endpoint: "postgres://{{ vault_postgres_user }}:{{ vault_postgres_pass }}@qnap.nwlnexus.net:5432/k3sdb?sslmode=disable"
+          flannel-backend: "{{ k3s_flannel_backend }}"
+          tls-san:
+            - "{{ k3s_registration_vip }}"
+          node-taint:
+            - "CriticalAddonsOnly=true:NoExecute"
         k3s_agent:
-          token: "{{ _olympus_v2['k3s_cluster']['cluster_token'] }}"
+          log: "/var/log/k3s.log"
+          alsologtostderr: true
+          node-name: "{{ ansible_facts['hostname'] }}"
           with-node-id: true
       when:
         - use_k3s
         - inventory_hostname in groups['k3s_cluster']
-      tags: k3s-install
+  tags:
+    - k3s-install

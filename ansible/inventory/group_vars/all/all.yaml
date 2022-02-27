@@ -2,7 +2,7 @@
 ansible_user: ubuntu
 
 use_nomad: false
-use_k3s: true
+use_k3s: false
 
 install_ddclient: true
 install_certbot: true

@@ -35,8 +35,9 @@
 
 - name: determine if to install or upgrade cloudflared binary
   ansible.builtin.set_fact:
-    _install_cloudflared: "{{ true | default(false) }}"
-  when: (not cloudflared_binary.stat.exists)
+    _install_cloudflared: true
+  when: >
+    (not cloudflared_binary.stat.exists)
     or (cloudflared_binary.stat.exists and _discovered_binary_version is version(cloudflared_version,operator='lt',version_type='semver'))
     or cloudflared_install_override
 
@@ -48,7 +49,9 @@
 - name: testing variable cloudflared_version to be installed
   ansible.builtin.debug:
     var: cloudflared_version
-  when: cloudflared_install_debug and _install_cloudflared
+  when:
+    - cloudflared_install_debug
+    - _install_cloudflared | default(false)
 
 - name: define supported *nix distributions
   ansible.builtin.set_fact:

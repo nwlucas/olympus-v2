@@ -6,12 +6,12 @@
     - systemd-reload
 
 - name: Generating Netplan Configuration
-  command: netplan generate
+  ansible.builtin.command: netplan generate
   listen: netplan generate config
   notify: netplan apply config
 
 - name: Applying Netplan Configuration
-  command: netplan apply
+  ansible.builtin.command: netplan apply
   listen: netplan apply config
   when: netplan_apply
 
@@ -21,3 +21,28 @@
     daemon_reload: true
     name: systemd-networkd
   listen: restart networkd
+
+- name: Reboot host and wait for it to restart
+  ansible.builtin.reboot:
+    msg: "Reboot initiated by Ansible"
+    connect_timeout: 5
+    reboot_timeout: 600
+    pre_reboot_delay: 0
+    post_reboot_delay: 30
+    test_command: "whoami"
+  listen:
+    - reboot
+
+- name: Update Grub2 config file ubuntu
+  ansible.builtin.command:
+    cmd: >
+      /usr/sbin/update-grub
+  listen:
+    - "update grub"
+    - "grub-update"
+    - "update_grub"
+
+- name: reload iptables
+  ansible.builtin.command:
+    cmd: >
+      /sbin/iptables-restore < /etc/network/iptables

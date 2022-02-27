@@ -34,12 +34,22 @@ resource "aws_s3_bucket_object" "nomad_secret" {
   content = random_id.nomad_secret.b64_std
 }
 
-resource "random_id" "k3s_token" {
+resource "random_id" "k3s_server_token" {
   byte_length = 32
 }
 
-resource "aws_s3_bucket_object" "k3s_token" {
+resource "aws_s3_bucket_object" "k3s_server_token" {
   bucket  = var.AWS_BUCKET
-  key     = "/k3s/k3s_token"
-  content = random_id.k3s_token.b64_std
+  key     = "/k3s/k3s_server_token"
+  content = random_id.k3s_server_token.b64_std
+}
+
+resource "random_id" "k3s_agent_token" {
+  byte_length = 32
+}
+
+resource "aws_s3_bucket_object" "k3s_agent_token" {
+  bucket  = var.AWS_BUCKET
+  key     = "/k3s/k3s_agent_token"
+  content = random_id.k3s_agent_token.b64_std
 }
