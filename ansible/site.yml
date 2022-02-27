@@ -231,6 +231,8 @@
         - traefik-setup
         - traefik-cleanup
         - traefik-config
+  tags:
+    - host-prep
 
 - name: install consul cluster
   hosts: consul_servers,app_servers
@@ -253,11 +255,13 @@
         consul_certs: "{{ _olympus_v2['consul_hosts'] }}"
         consul_ca: "{{ _olympus_v2['hashi_cas'] }}"
         consul_encrypt_token: "{{ _olympus_v2['consul_hosts']['consul_secret'] }}"
+      tags:
+        - consul-install
+        - consul-certs
+        - consul-config
+        - hashi-stack
   tags:
-    - consul-install
-    - consul-certs
-    - consul-config
-    - hashi-stack
+    - consul
 
 - name: install nomad cluster
   hosts: nomad_servers,app_servers
@@ -440,11 +444,13 @@
         nomad_log_level: "debug"
       when:
         - use_nomad
+      tags:
+        - nomad-install
+        - nomad-certs
+        - nomad-config
+        - hashi-stack
   tags:
-    - nomad-install
-    - nomad-certs
-    - nomad-config
-    - hashi-stack
+    - nomad
 
 - name: install k3s cluster
   hosts: k3s_cluster
@@ -510,8 +516,8 @@
       ansible.builtin.lineinfile:
         path: /etc/default/grub
         backrefs: true
-        regexp: '^GRUB_CMDLINE_LINUX=\"((?!.*\bsystemd\.unified_cgroup_hierarchy=1\b).*)\"$'
-        line: 'GRUB_CMDLINE_LINUX=\"\1 systemd\.unified_cgroup_heirarchy=1\"'
+        regexp: '^(GRUB_CMDLINE_LINUX=(?!.* systemd\.unified_cgroup_heirarchy=1)\"[^\"]+)(\".*)$'
+        line: '\1 systemd.unified_cgroup_heirarchy=1\2'
       notify:
         - update_grub
         - reboot
@@ -565,6 +571,8 @@
             value: "{{ _olympus_v2['k3s_cluster']['server_token'] }}"
           - name: K3S_AGENT_TOKEN
             value: "{{ _olympus_v2['k3s_cluster']['agent_token'] }}"
+          - name: K3S_URL
+            value: "https://{{ k3s_registration_vip }}:{{ k3s_controlplane_port|default('6443') }}"
 
     - name: setup k3s cluster
       ansible.builtin.include_role:
@@ -593,10 +601,12 @@
         k3s_agent:
           log: "/var/log/k3s.log"
           alsologtostderr: true
-          node-name: "{{ ansible_facts['hostname'] }}"
-          with-node-id: true
+          node-name: "{{ inventory_hostname }}"
+          with-node-id: false
       when:
         - use_k3s
         - inventory_hostname in groups['k3s_cluster']
+      tags:
+        - k3s-install
   tags:
-    - k3s-install
+    - k3s
