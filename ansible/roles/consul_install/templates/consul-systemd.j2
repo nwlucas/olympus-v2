@@ -9,7 +9,7 @@ ConditionFileNotEmpty={{ consul_config_path | dirname }}/consul.hcl
 EnvironmentFile=-{{ consul_config_path | dirname }}/consul.env
 User={{ consul_user }}
 Group={{ consul_group }}
-ExecStart=/usr/local/bin/consul agent -config-dir={{ consul_config_path | dirname }}/
+ExecStart={{ hashi_binary_dir }}/consul agent -config-dir={{ consul_config_path | dirname }}/
 ExecReload=/bin/kill --signal HUP $MAINPID
 KillMode=process
 KillSignal=SIGTERM

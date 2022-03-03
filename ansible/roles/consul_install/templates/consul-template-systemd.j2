@@ -1,0 +1,15 @@
+[Unit]
+Description="HashiCorp Consul Template - A templating solution based on input from Consul"
+Documentation=https://www.consul.io/
+Requires=network-online.target
+After=network-online.target consul.service vault.service
+
+[Service]
+EnvironmentFile=-{{ ct_env_path }}
+User={{ consul_user }}
+Group={{ consul_group }}
+ExecStart={{ hashi_binary_dir }}/consul-template $OPTIONS -config{{ ct_config_dir }}
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target

@@ -1,2 +1,1 @@
-hashi_binary_dir: "/opt/bin"
 vault_datacenter: "{{ _olympus_v2['vault_hosts']['datacenter'] }}"

@@ -245,12 +245,6 @@
     - name: setup consul cluster
       ansible.builtin.include_role:
         name: consul_install
-        apply:
-          tags:
-            - consul-install
-            - consul-certs
-            - consul-config
-            - hashi-stack
       vars:
         consul_certs: "{{ _olympus_v2['consul_hosts'] }}"
         consul_ca: "{{ _olympus_v2['hashi_cas'] }}"

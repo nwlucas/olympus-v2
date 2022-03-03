@@ -1,0 +1,98 @@
+---
+- name: preparing for upgrade
+  block:
+    - name: get service status
+      ansible.builtin.service_facts:
+      register: services_state
+
+    - name: stop consle template-services
+      ansible.builtin.systemd:
+        name: consul.service
+        state: stopped
+      when:
+        - "'consul-template' in services_state.ansible_facts.services"
+        - services_state.ansible_facts.services["consul-template.service"].state == "running"
+  when:
+    - ct_systemd.stat.exists
+    - ct_binary.stat.exists
+
+- name: Ensure target host architecture information is set as a fact
+  ansible.builtin.set_fact:
+    ct_distribution: "{{ ansible_facts['system']|lower }}"
+    ct_arch: "{{ _arch_lookup[ansible_facts['architecture']].arch }}"
+    ct_arch_suffix: "{{ _arch_lookup[ansible_facts['architecture']].suffix|replace('-','_') }}"
+  check_mode: false
+
+- name: Ensure URLs are set as facts for downloading binaries
+  ansible.builtin.set_fact:
+    ct_binary_url: "{{ ct_archive }}/{{ ct_version }}/consul-template_{{ ct_version }}_{{ ct_distribution }}{{ ct_arch_suffix }}.zip"
+    ct_hash_url: "{{ ct_archive }}/{{ ct_version }}/consul-template_{{ ct_version }}_SHA256SUMS"
+  check_mode: false
+
+- name: Ensure the consul template hashsum is downloaded
+  ansible.builtin.uri:
+    url: "{{ ct_hash_url }}"
+    return_content: true
+  register: ct_hash_sum_raw
+  check_mode: false
+
+- name: Ensure sha256sum is set from hashsum variable
+  ansible.builtin.set_fact:
+    ct_hash_sum: "{{ (ct_hash_sum_raw.content.split('\n') |
+      select('search', 'consul-template_' + ct_version + '_' +ct_distribution + ct_arch_suffix + '.zip') |
+      reject('search', 'images') |
+      first).split() | first }}"
+  changed_when: false
+  check_mode: false
+
+- name: Ensure consul template binary is downloaded
+  ansible.builtin.get_url:
+    url: "{{ ct_binary_url }}"
+    dest: "/tmp/consul-template.zip"
+    checksum: "sha256:{{ ct_hash_sum }}"
+    mode: "0755"
+
+- name: unpack archive
+  ansible.builtin.unarchive:
+    remote_src: true
+    src: /tmp/consul-template.zip
+    dest: "{{ hashi_binary_dir }}"
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: "0755"
+
+- name: create symbolic link for consul template
+  ansible.builtin.file:
+    src: "{{ hashi_binary_dir }}/consul-template"
+    dest: "/usr/local/bin/consul-template"
+    state: link
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: "0755"
+  when:
+    - hashi_binary_dir != "/usr/local/bin"
+
+- name: ensure consul template config directory exists
+  ansible.builtin.file:
+    path: "{{ ct_config_dir }}"
+    state: "directory"
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: "0755"
+
+- name: create systemd unit
+  ansible.builtin.template:
+    src: consul-template-systemd.j2
+    dest: /etc/systemd/system/consul-template.service
+    owner: root
+    group: root
+    mode: 0644
+  notify: "restart consul template services"
+
+- name: place consul template env
+  ansible.builtin.template:
+    src: "consul-template-env.j2"
+    dest: "{{ ct_env_path }}"
+    mode: 0640
+  notify: "restart consul template services"
+  when: ct_env.keys()|length > 0

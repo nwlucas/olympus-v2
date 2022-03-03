@@ -1,7 +1,7 @@
 - name: show _consul_certs
   ansible.builtin.debug:
     var: _consul_certs
-  when: consul_install_debug
+  when: consul_install_debug|default(false)
   tags:
     - consul-certs
 
@@ -9,7 +9,7 @@
   ansible.builtin.debug:
     var: _consul_certs['cluster'] is defined
   when:
-    - consul_install_debug
+    - consul_install_debug|default(false)
     - inventory_hostname in _consul_certs['cluster']
   tags:
     - consul-certs
@@ -17,14 +17,14 @@
 - name: is there a client key in _consul_certs?
   ansible.builtin.debug:
     var: _consul_certs['client'][consul_datacenter] is defined
-  when: consul_install_debug
+  when: consul_install_debug|default(false)
   tags:
     - consul-certs
 
 - name: show _consul_ca
   ansible.builtin.debug:
     var: _consul_ca
-  when: consul_install_debug
+  when: consul_install_debug|default(false)
   tags:
     - consul-certs
 
@@ -33,7 +33,7 @@
     var: item | dict2items
   when:
     - inventory_hostname in _consul_certs['cluster']
-    - consul_install_debug
+    - consul_install_debug|default(false)
     - _consul_certs['cluster'] is defined
     - _consul_certs['cluster'].keys()|length > 0
   loop:
@@ -45,7 +45,7 @@
   ansible.builtin.debug:
     var: item
   when:
-    - consul_install_debug
+    - consul_install_debug|default(false)
     - _consul_certs['client'] is defined
   loop:
     - "{{ _consul_certs['client'][consul_datacenter]['cert_private_key'] }}"

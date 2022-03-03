@@ -6,6 +6,8 @@
   listen:
     - reload_systemd
     - systemd_reload
+    - "restart consul services"
+    - "restart consul template services"
 
 - name: restart consul
   ansible.builtin.systemd:
@@ -15,6 +17,13 @@
     - restart_consul
     - consul_restart
     - "restart consul services"
+
+- name: restart consul-template
+  ansible.builtin.systemd:
+    name: consul-template.service
+    state: restarted
+  listen:
+    - "restart consul template services"
 
 - name: restart systemd-resolved
   ansible.builtin.systemd:

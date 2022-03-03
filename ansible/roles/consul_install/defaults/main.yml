@@ -1,11 +1,39 @@
 ---
+_arch_lookup:
+  amd64:
+    arch: amd64
+    suffix: "-amd64"
+  x86_64:
+    arch: amd64
+    suffix: "-amd64"
+  arm64:
+    arch: arm64
+    suffix: "-arm64"
+  aarch64:
+    arch: arm64
+    suffix: "-arm64"
+  arm:
+    arch: arm
+    suffix: "-armhf"
+  arm6l:
+    arch: arm
+    suffix: "-armhf"
+  armv6l:
+    arch: arm
+    suffix: "-armhf"
+  arm7:
+    arch: arm
+    suffix: "-armhf"
+  armv7l:
+    arch: arm
+    suffix: "-armhf"
+  armhf:
+    arch: arm
+    suffix: "-armhf"
+
 # defaults file for consul_install
-_install_consul: false
 
-consul_install_debug: false
 hashi_binary_dir: "/usr/local/bin"
-
-consul_install_override: false
 
 consul_version: "1.10.4"
 consul_user: "consul"
@@ -55,3 +83,12 @@ consul_ports:
 consul_recursors: ["1.1.1.1", "8.8.8.8"]
 
 consul_listener_interface: "default"
+
+## consul template variables
+
+ct_version: "0.27.2"
+ct_archive: "https://releases.hashicorp.com/consul-template"
+
+ct_config_dir: "/opt/consul-template.d"
+ct_env_path: "/etc/default/consul-template"
+ct_env: {}
