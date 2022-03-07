@@ -544,16 +544,6 @@
       loop:
         - "wireguard"
   tasks:
-    - name: create consul service for k3s server nodes
-      ansible.builtin.uri:
-        url: "http://127.0.0.1:8500/v1/agent/service/register?replace-existing-checks=true"
-        method: POST
-        body_format: json
-        return_content: true
-        status_code: [200, 202]
-        removes: "/tmp/k3s-service-consul.json"
-      when: inventory_hostname in groups['k3s_masters']
-
     - name: template out env variables
       ansible.builtin.template:
         src: "env.j2"
@@ -571,6 +561,7 @@
     - name: setup k3s cluster
       ansible.builtin.include_role:
         name: xanmanning.k3s
+        public: true
         apply:
           tags:
             - k3s-install
@@ -600,6 +591,42 @@
       when:
         - use_k3s
         - inventory_hostname in groups['k3s_cluster']
+      tags:
+        - k3s-install
+
+    - name: grab k3s config file
+      ansible.builtin.slurp:
+        src: "/etc/rancher/k3s/k3s.yaml"
+      register: k3s_yaml
+      when: inventory_hostname == ansible_play_hosts[0]
+      tags:
+        - k3s-install
+
+    - name: show k3s service registration
+      ansible.builtin.debug:
+        var: k3s_yaml['content'] | b64decode | json_query()
+      when: inventory_hostname == ansible_play_hosts[0]
+      tags:
+        - k3s-install
+
+    - name: create consul service for k3s server nodes
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:8500/v1/agent/service/register?replace-existing-checks=true"
+        method: "PUT"
+        body_format: "json"
+        creates: "/opt/k3s-service.registered"
+        body: "{{ lookup('template', './templates/consul-services/k3s-master.j2') | to_nice_json }}"
+        return_content: true
+        status_code: [200, 202]
+      register: k3s_service_register
+      when: inventory_hostname in groups['k3s_masters']
+      tags:
+        - k3s-install
+
+    - name: show k3s service registration
+      ansible.builtin.debug:
+        var: k3s_service_register
+      when: inventory_hostname in groups['k3s_masters']
       tags:
         - k3s-install
   tags:

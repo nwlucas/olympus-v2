@@ -1,0 +1,40 @@
+{
+  "ID": "{{ ansible_facts['hostname'] + '-k3s-controlplane' }}",
+  "Name": "k3s-controlplane",
+  "Tags": ["k3s", "k3s-master"],
+  "Port": {{ k3s_controlplane_port|default('6443') }},
+  "Meta": {
+    "redis_version": "4.0"
+  },
+  "EnableTagOverride": false,
+  "Checks": [
+    {
+      "Name": "k3s-readyz",
+      "DeregisterCriticalServiceAfter": "90m",
+      "Interval": "10s",
+      "Timeout": "10s",
+      "HTTP": "https://127.0.0.1:{{ k3s_controlplane_port|default('6443') }}/readyz",
+      "Method": "GET",
+      "Header": {
+        "Content-Type": ["application/json"],
+        "Authorization": "Bearer "
+      }
+    },
+    {
+      "Name": "k3s-live",
+      "DeregisterCriticalServiceAfter": "90m",
+      "Interval": "10s",
+      "Timeout": "10s",
+      "HTTP": "https://127.0.0.1:{{ k3s_controlplane_port|default('6443') }}/readyz",
+      "Method": "GET",
+      "Header": {
+        "Content-Type": ["application/json"],
+        "Authorization": "Bearer "
+      }
+    },
+  ],
+  "Weights": {
+    "Passing": 10,
+    "Warning": 1
+  }
+}
