@@ -6,7 +6,6 @@
 {% set host_type = "dell" %}
 {% endif -%}
 
-write-kubeconfig-mode: "0644"
 {% if enable_k3s_logging|default(true) %}
 v: 4
 log: {{ k3s_log_file|default("/var/log/k3s.log") }}

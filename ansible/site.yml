@@ -549,15 +549,6 @@
         src: "./templates/k3s-configs/env.j2"
         dest: "/etc/default/k3s"
         mode: "0644"
-      vars:
-        envs:
-          - name: K3S_TOKEN
-            value: "{{ _olympus_v2['k3s_cluster']['server_token'] }}"
-          - name: K3S_DEBUG
-            value: "1"
-          - name: K3S_URL
-            value: "https://{{ k3s_ha_fqdn }}:{{ k3s_controlplane_port|default('6443') }}"
-      notify: restart k3s
 
     # - name: setup db
     #   block:
@@ -590,6 +581,11 @@
     #     - k3s-db
     #     - k3s-install
 
+    - name: set k3s_control_node fact
+      ansible.builtin.set_fact:
+        k3s_control_node: true
+      when: inventory_hostname in groups['k3s_masters']
+
     - name: setup k3s cluster
       ansible.builtin.include_role:
         name: xanmanning.k3s
@@ -601,7 +597,7 @@
         k3s_become: true
         k3s_skip_validation: false
         k3s_skip_env_checks: false
-        k3s_install_hard_links: false
+        k3s_install_hard_links: true
         k3s_use_experimental: true
         k3s_registration_address: "{{ k3s_ha_fqdn }}"
         k3s_service_after: []
@@ -747,6 +743,26 @@
       tags:
         - k3s-install
         - k3s-consul-service
+
+    - name: Deploy to the running cluster
+      block:
+        - name: ensure pip packages are installed
+          ansible.builtin.pip:
+            name: openshift
+            executable: pip3
+            umask: "0022"
+        - name: add helm chart repository for Hashicorp
+          kubernetes.core.helm_repository:
+            name: "hashicorp"
+            repo_url: "https://helm.releases.hashicorp.com"
+        - name: add helm chart repository for Hashicorp
+          kubernetes.core.helm:
+            name: "hashicorp"
+            repo_url: "https://helm.releases.hashicorp.com"
+      delegate_to: localhost
+      tags:
+        - k3s-install
+        - k3s-manifests
 
   tags:
     - k3s
