@@ -1,6 +1,18 @@
-v: 4
+{%- if raspberry_pi is defined and raspberry_pi %}
+{% set host_type = "rpi" %}
+{% elif supermicro is defined and supermicro %}
+{% set host_type = "supermicro" %}
+{% else %}
+{% set host_type = "dell" %}
+{% endif -%}
+
 write-kubeconfig-mode: "0644"
-log: "/var/log/k3s.log"
+{% if enable_k3s_logging|default(true) %}
+v: 4
+log: {{ k3s_log_file|default("/var/log/k3s.log") }}
 alsologtostderr: true
+{% endif %}
 node-name: "{{ inventory_hostname }}"
 with-node-id: false
+node-label:
+  - "host={{ host_type }}"

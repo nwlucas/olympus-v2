@@ -546,7 +546,7 @@
   tasks:
     - name: template out env variables
       ansible.builtin.template:
-        src: "env.j2"
+        src: "./templates/k3s-configs/env.j2"
         dest: "/etc/default/k3s"
         mode: "0644"
       vars:
@@ -555,6 +555,8 @@
             value: "{{ _olympus_v2['k3s_cluster']['server_token'] }}"
           - name: K3S_DEBUG
             value: "1"
+          - name: K3S_URL
+            value: "https://{{ k3s_ha_fqdn }}:{{ k3s_controlplane_port|default('6443') }}"
       notify: restart k3s
 
     # - name: setup db
@@ -588,16 +590,6 @@
     #     - k3s-db
     #     - k3s-install
 
-    - name: set db url fact
-      ansible.builtin.set_fact:
-        _db_url_base: >
-          "{{ vault_db_k3s.adapter }}://{{ vault_db_k3s.user }}:{{ vault_db_k3s.pass }}@{{ vault_db_k3s.server }}:{{ vault_db_k3s.port }}/{{ vault_db_k3s.db }}"
-
-    - name: set db url without ssl
-      ansible.builtin.set_fact:
-        _db_url: "{{ (_db_url_base|trim ~ '?sslmode=disable'|trim|trim) }}"
-      when: (vault_db_k3s.ssl is defined and not vault_db_k3s.ssl) or vault_db_k3s.ssl is not defined
-
     - name: setup k3s cluster
       ansible.builtin.include_role:
         name: xanmanning.k3s
@@ -616,21 +608,12 @@
         k3s_server_manifests_urls: []
         k3s_server_pod_manifests_urls: []
         k3s_service_env_file: "/etc/default/k3s"
-        k3s_server:
-          datastore-endpoint: "{{ vault_db_k3s.adapter }}://{{ vault_db_k3s.user }}:{{ vault_db_k3s.pass }}@{{ vault_db_k3s.server }}:{{ vault_db_k3s.port }}/{{ vault_db_k3s.db }}?sslmode=disable"
-          flannel-backend: "{{ k3s_flannel_backend }}"
-          tls-san:
-            - "{{ k3s_ha_fqdn }}"
-          node-taint:
-            - "CriticalAddonsOnly=true:NoExecute"
-          disable:
-            - traefik
-        k3s_agent:
+        k3s_server: "{{ lookup('template', './templates/k3s-configs/server.j2') | from_yaml }}"
+        k3s_agent: "{{ lookup('template', './templates/k3s-configs/agent.j2') | from_yaml }}"
       when:
         - use_k3s|default(false)
       tags:
         - k3s-install
-        - skip_ansible_lint
 
     - name: register consul service for k3s control plane
       block:
@@ -706,17 +689,17 @@
         - k3s-install
         - k3s-consul-service
 
-    - name: ensure the proper HA URL is in place for the agent nodes
-      ansible.builtin.lineinfile:
-        path: "/etc/default/k3s"
-        regexp: "^K3S_URL="
-        line: "K3S_URL=https://{{ k3s_ha_fqdn }}:{{ k3s_controlplane_port|default('6443') }}"
-      when:
-        - inventory_hostname in groups['k3s_nodes']
-        - k3s_state|default("installed") != "uninstalled"
-      notify: restart k3s
-      tags:
-        - k3s-install
+    # - name: ensure the proper HA URL is in place for the agent nodes
+    #   ansible.builtin.lineinfile:
+    #     path: "/etc/default/k3s"
+    #     regexp: "^K3S_URL="
+    #     line: "K3S_URL=https://{{ k3s_ha_fqdn }}:{{ k3s_controlplane_port|default('6443') }}"
+    #   when:
+    #     - inventory_hostname in groups['k3s_nodes']
+    #     - k3s_state|default("installed") != "uninstalled"
+    #   notify: restart k3s
+    #   tags:
+    #     - k3s-install
 
     - name: cleanup actions IF K3s state is set to uninstalled
       block:
