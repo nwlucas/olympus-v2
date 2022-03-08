@@ -577,17 +577,7 @@
         k3s_server_pod_manifests_urls: []
         k3s_service_env_file: "/etc/default/k3s"
         k3s_server:
-          datastore-endpoint: "postgres://{{ vault_postgres_user }}:{{ vault_postgres_pass }}@qnap.nwlnexus.net:5432/k3sdb?sslmode=disable"
-          flannel-backend: "{{ k3s_flannel_backend }}"
-          tls-san:
-            - "{{ k3s_registration_vip }}"
-          node-taint:
-            - "CriticalAddonsOnly=true:NoExecute"
         k3s_agent:
-          log: "/var/log/k3s.log"
-          alsologtostderr: true
-          node-name: "{{ inventory_hostname }}"
-          with-node-id: false
       when:
         - use_k3s
         - inventory_hostname in groups['k3s_cluster']

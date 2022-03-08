@@ -1,0 +1,8 @@
+datastore-endpoint: "postgres://{{ vault_postgres_user }}:{{ vault_postgres_pass }}@qnap.nwlnexus.net:5432/k3sdb?sslmode=disable"
+flannel-backend: "{{ k3s_flannel_backend }}"
+tls-san:
+  - "{{ k3s_registration_vip }}"
+node-taint:
+  - "CriticalAddonsOnly=true:NoExecute"
+disable:
+  - servicelb
