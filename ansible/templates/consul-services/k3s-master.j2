@@ -1,37 +1,40 @@
 {
-  "ID": "{{ ansible_facts['hostname'] + '-k3s-controlplane' }}",
-  "Name": "k3s-controlplane",
-  "Tags": ["k3s", "k3s-master"],
+  "ID": "{{ ansible_facts['hostname'] + '-' + service_name }}",
+  "Name": "{{ service_name }}",
+  "Tags": ["k3s", "k3s-master", "k3s-control-plane" , "{{ service_name }}"],
   "Port": {{ k3s_controlplane_port|default('6443') }},
   "Meta": {
-    "redis_version": "4.0"
+    "k3s_version": "{{ _k3s_version }}"
   },
-  "EnableTagOverride": false,
   "Checks": [
     {
       "Name": "k3s-readyz",
-      "DeregisterCriticalServiceAfter": "90m",
+      "DeregisterCriticalServiceAfter": "10080m",
       "Interval": "10s",
       "Timeout": "10s",
       "HTTP": "https://127.0.0.1:{{ k3s_controlplane_port|default('6443') }}/readyz",
       "Method": "GET",
       "Header": {
         "Content-Type": ["application/json"],
-        "Authorization": "Bearer "
-      }
+        "Authorization": ["Bearer {{ hostvars[ansible_play_hosts[0]]['k3s_token'] }}"]
+      },
+      "TLSSkipVerify": true,
+      "FailuresBeforeCritical": 10
     },
     {
-      "Name": "k3s-live",
-      "DeregisterCriticalServiceAfter": "90m",
+      "Name": "k3s-livez",
+      "DeregisterCriticalServiceAfter": "10080m",
       "Interval": "10s",
       "Timeout": "10s",
-      "HTTP": "https://127.0.0.1:{{ k3s_controlplane_port|default('6443') }}/readyz",
+      "HTTP": "https://127.0.0.1:{{ k3s_controlplane_port|default('6443') }}/livez",
       "Method": "GET",
       "Header": {
         "Content-Type": ["application/json"],
-        "Authorization": "Bearer "
-      }
-    },
+        "Authorization": ["Bearer {{ hostvars[ansible_play_hosts[0]]['k3s_token'] }}"]
+      },
+      "TLSSkipVerify": true,
+      "FailuresBeforeCritical": 10
+    }
   ],
   "Weights": {
     "Passing": 10,

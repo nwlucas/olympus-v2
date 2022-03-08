@@ -33,12 +33,12 @@ vault_servers
 consul_servers
 
 [k3s_masters]
-rpi-[01:05].nwlnexus.net
+rpi-[01:03].nwlnexus.net
 
 [k3s_nodes]
 janus-[01:02].nwlnexus.net
 hades.nwlnexus.net
-rpi-06.nwlnexus.net
+rpi-[04:06].nwlnexus.net
 
 [k3s_cluster:children]
 k3s_masters
