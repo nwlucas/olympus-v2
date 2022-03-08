@@ -332,7 +332,7 @@
             state: started
             enabled: true
       when:
-        - use_nomad
+        - use_nomad|default(false)
         - inventory_hostname in groups['app_servers']
       tags:
         - install-cni
@@ -417,8 +417,8 @@
           when: use_kata_containers
       when:
         - inventory_hostname in groups['app_servers']
-        - use_docker
-        - use_nomad
+        - use_docker|default(false)
+        - use_nomad|default(false)
       tags:
         - setup-docker
   tasks:
@@ -437,7 +437,7 @@
         nomad_encrypt_token: "{{ _olympus_v2['nomad_hosts']['nomad_secret'] }}"
         nomad_log_level: "debug"
       when:
-        - use_nomad
+        - use_nomad|default(false)
       tags:
         - nomad-install
         - nomad-certs
@@ -553,10 +553,50 @@
         envs:
           - name: K3S_TOKEN
             value: "{{ _olympus_v2['k3s_cluster']['server_token'] }}"
-          - name: K3S_AGENT_TOKEN
-            value: "{{ _olympus_v2['k3s_cluster']['agent_token'] }}"
-          - name: K3S_URL
-            value: "https://{{ k3s_registration_vip }}:{{ k3s_controlplane_port|default('6443') }}"
+          - name: K3S_DEBUG
+            value: "1"
+      notify: restart k3s
+
+    # - name: setup db
+    #   block:
+    #     - name: Install psycopg2 for ansible to be able to create postgresql users
+    #       pip: name=psycopg2-binary
+    #     - name: ensure k3s db
+    #       community.postgresql.postgresql_db:
+    #         name: "{{ vault_db_k3s.db }}"
+    #         encoding: "UTF-8"
+    #         lc_collate: "en_US.UTF-8"
+    #         lc_ctype: "en_US.UTF-8"
+    #         template: "template0"
+    #         login_host: "{{ vault_db_admin.server }}"
+    #         login_user: "{{ vault_db_admin.user }}"
+    #         login_password: "{{ vault_db_admin.pass }}"
+    #     - name: ensure k3s db user
+    #       community.postgresql.postgresql_user:
+    #         db: "{{ vault_db_k3s.db }}"
+    #         name: "{{ vault_db_k3s.user }}"
+    #         password: "{{ vault_db_k3s.pass }}"
+    #         comment: "K3S Control Plane User"
+    #         login_host: "{{ vault_db_admin.server }}"
+    #         login_user: "{{ vault_db_admin.user }}"
+    #         login_password: "{{ vault_db_admin.pass }}"
+    #   when:
+    #     - vault_db_k3s.adapter == "postgres"
+    #   delegate_to: localhost
+    #   become: false
+    #   tags:
+    #     - k3s-db
+    #     - k3s-install
+
+    - name: set db url fact
+      ansible.builtin.set_fact:
+        _db_url_base: >
+          "{{ vault_db_k3s.adapter }}://{{ vault_db_k3s.user }}:{{ vault_db_k3s.pass }}@{{ vault_db_k3s.server }}:{{ vault_db_k3s.port }}/{{ vault_db_k3s.db }}"
+
+    - name: set db url without ssl
+      ansible.builtin.set_fact:
+        _db_url: "{{ (_db_url_base|trim ~ '?sslmode=disable'|trim|trim) }}"
+      when: (vault_db_k3s.ssl is defined and not vault_db_k3s.ssl) or vault_db_k3s.ssl is not defined
 
     - name: setup k3s cluster
       ansible.builtin.include_role:
@@ -571,63 +611,163 @@
         k3s_skip_env_checks: false
         k3s_install_hard_links: false
         k3s_use_experimental: true
-        k3s_registration_address: "{{ k3s_registration_vip }}"
+        k3s_registration_address: "{{ k3s_ha_fqdn }}"
         k3s_service_after: []
         k3s_server_manifests_urls: []
         k3s_server_pod_manifests_urls: []
         k3s_service_env_file: "/etc/default/k3s"
         k3s_server:
-          datastore-endpoint: "postgres://{{ vault_postgres_user }}:{{ vault_postgres_pass }}@qnap.nwlnexus.net:5432/k3sdb?sslmode=disable"
+          datastore-endpoint: "{{ vault_db_k3s.adapter }}://{{ vault_db_k3s.user }}:{{ vault_db_k3s.pass }}@{{ vault_db_k3s.server }}:{{ vault_db_k3s.port }}/{{ vault_db_k3s.db }}?sslmode=disable"
           flannel-backend: "{{ k3s_flannel_backend }}"
           tls-san:
-            - "{{ k3s_registration_vip }}"
+            - "{{ k3s_ha_fqdn }}"
           node-taint:
             - "CriticalAddonsOnly=true:NoExecute"
+          disable:
+            - traefik
         k3s_agent:
           log: "/var/log/k3s.log"
           alsologtostderr: true
           node-name: "{{ inventory_hostname }}"
           with-node-id: false
       when:
-        - use_k3s
-        - inventory_hostname in groups['k3s_cluster']
+        - use_k3s|default(false)
+      tags:
+        - k3s-install
+        - skip_ansible_lint
+
+    - name: register consul service for k3s control plane
+      block:
+        - name: grab k3s secret with admin token
+          ansible.builtin.command:
+            argv:
+              - kubectl
+              - --namespace=kube-system
+              - get
+              - secret
+              - -o=jsonpath='{.items[?(@.metadata.annotations.kubernetes\.io/service-account\.name=="default")].data.token}'
+          register: k3s_token_raw
+          changed_when: false
+
+        - name: show k3s admin token
+          ansible.builtin.set_fact:
+            k3s_token: "{{ k3s_token_raw.stdout | b64decode }}"
+
+        - name: test token hitting API/version
+          ansible.builtin.uri:
+            url: "https://127.0.0.1:6443/version"
+            method: "GET"
+            return_content: true
+            headers:
+              Authorization: "Bearer {{ k3s_token }}"
+            validate_certs: false
+          register: k3s_api_version_output
+
+        - name: set k3s version
+          ansible.builtin.set_fact:
+            _k3s_version: "{{ k3s_api_version_output['json'] | community.general.json_query('gitVersion') }}"
+
+        - name: template out service registration
+          ansible.builtin.template:
+            src: "./templates/consul-services/k3s-master.j2"
+            dest: "/opt/k3s-service.json"
+            mode: "0644"
+          register: k3s_consul_svc_tpl
+          vars:
+            service_name: "{{ k3s_ha_host }}"
+          when: k3s_token_raw is succeeded and k3s_token|length > 0
+
+        - name: grab k3s service file from each host
+          ansible.builtin.slurp:
+            src: "/opt/k3s-service.json"
+          register: k3s_consul_svc_file
+          when: k3s_consul_svc_tpl is changed
+
+        - name: set k3s version fact
+          ansible.builtin.set_fact:
+            _k3s_version: "{{ k3s_api_version_output['json'] | community.general.json_query('gitVersion') }}"
+
+        - name: create consul service for k3s server nodes
+          ansible.builtin.uri:
+            url: "http://127.0.0.1:8500/v1/agent/service/register?replace-existing-checks=true"
+            method: "PUT"
+            body_format: "json"
+            body: "{{ k3s_consul_svc_file['content'] | b64decode }}"
+            return_content: true
+            status_code: [200, 202]
+          register: k3s_service_register
+          when: k3s_consul_svc_file is succeeded and k3s_consul_svc_tpl is changed
+
+        - name: show k3s service registration
+          ansible.builtin.debug:
+            var: k3s_service_register
+          when: k3s_service_register is failed
+
+      when:
+        - inventory_hostname in groups['k3s_masters']
+        - k3s_state|default("installed") != "uninstalled"
+      tags:
+        - k3s-install
+        - k3s-consul-service
+
+    - name: ensure the proper HA URL is in place for the agent nodes
+      ansible.builtin.lineinfile:
+        path: "/etc/default/k3s"
+        regexp: "^K3S_URL="
+        line: "K3S_URL=https://{{ k3s_ha_fqdn }}:{{ k3s_controlplane_port|default('6443') }}"
+      when:
+        - inventory_hostname in groups['k3s_nodes']
+        - k3s_state|default("installed") != "uninstalled"
+      notify: restart k3s
       tags:
         - k3s-install
 
-    - name: grab k3s config file
-      ansible.builtin.slurp:
-        src: "/etc/rancher/k3s/k3s.yaml"
-      register: k3s_yaml
-      when: inventory_hostname == ansible_play_hosts[0]
-      tags:
-        - k3s-install
+    - name: cleanup actions IF K3s state is set to uninstalled
+      block:
+        - name: create consul service for k3s server nodes
+          ansible.builtin.uri:
+            url: "http://127.0.0.1:8500/v1/agent/service/deregister/{{ ansible_facts['hostname'] + '-' + service_name }}"
+            method: "PUT"
+            status_code: [200, 202, 204]
+          vars:
+            service_name: "{{ k3s_ha_host }}"
+          when:
+            - inventory_hostname in groups['k3s_masters']
 
-    - name: show k3s service registration
-      ansible.builtin.debug:
-        var: k3s_yaml['content'] | b64decode | json_query()
-      when: inventory_hostname == ansible_play_hosts[0]
-      tags:
-        - k3s-install
+        # - name: ensure k3s db user
+        #   community.postgresql.postgresql_user:
+        #     db: "{{ vault_db_k3s.db }}"
+        #     name: "{{ vault_db_k3s.user }}"
+        #     password: "{{ vault_db_k3s.pass }}"
+        #     comment: "K3S Control Plane User"
+        #     login_host: "{{ vault_db_admin.server }}"
+        #     login_user: "{{ vault_db_admin.user }}"
+        #     login_password: "{{ vault_db_admin.pass }}"
+        #   delegate_to: localhost
+        #   become: false
+        #   when:
+        #     - vault_db_k3s.adapter == "postgres"
 
-    - name: create consul service for k3s server nodes
-      ansible.builtin.uri:
-        url: "http://127.0.0.1:8500/v1/agent/service/register?replace-existing-checks=true"
-        method: "PUT"
-        body_format: "json"
-        creates: "/opt/k3s-service.registered"
-        body: "{{ lookup('template', './templates/consul-services/k3s-master.j2') | to_nice_json }}"
-        return_content: true
-        status_code: [200, 202]
-      register: k3s_service_register
-      when: inventory_hostname in groups['k3s_masters']
+        # - name: ensure k3s db
+        #   community.postgresql.postgresql_db:
+        #     name: "{{ vault_db_k3s.db }}"
+        #     encoding: "UTF-8"
+        #     lc_collate: "en_US.UTF-8"
+        #     lc_ctype: "en_US.UTF-8"
+        #     template: "template0"
+        #     login_host: "{{ vault_db_admin.server }}"
+        #     login_user: "{{ vault_db_admin.user }}"
+        #     login_password: "{{ vault_db_admin.pass }}"
+        #   delegate_to: localhost
+        #   become: false
+        #   when:
+        #     - vault_db_k3s.adapter == "postgres"
+      when:
+        - k3s_state is defined
+        - k3s_state == "uninstalled"
       tags:
         - k3s-install
+        - k3s-consul-service
 
-    - name: show k3s service registration
-      ansible.builtin.debug:
-        var: k3s_service_register
-      when: inventory_hostname in groups['k3s_masters']
-      tags:
-        - k3s-install
   tags:
     - k3s

@@ -1,3 +1,4 @@
 ---
-k3s_registration_vip: "k3s.nwlnexus.net"
+k3s_ha_host: "k3s-controlplane"
+k3s_ha_fqdn: "{{ k3s_ha_host }}.service.consul"
 k3s_flannel_backend: "wireguard"
