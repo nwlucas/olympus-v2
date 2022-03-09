@@ -748,18 +748,64 @@
       block:
         - name: ensure pip packages are installed
           ansible.builtin.pip:
-            name: openshift
+            name: "{{ item }}"
             executable: pip3
             umask: "0022"
+          loop:
+            - "kubernetes-validate"
+            - "openshift"
+
+        - name: ensure other dependencies are installed
+          community.general.snap:
+            name: helm
+            classic: true
+
+        - name: grab k3s service file from each host
+          ansible.builtin.slurp:
+            src: "/etc/rancher/k3s/k3s.yaml"
+          register: k3s_consul_svc_file
+
+        - name: create consul namespace
+          kubernetes.core.k8s:
+            kubeconfig: "/etc/rancher/k3s/k3s.yaml"
+            name: consul
+            api_version: v1
+            kind: Namespace
+            state: present
+
+        - name: show templating
+          ansible.builtin.debug:
+            var: lookup('template', './templates/k3s-manifests/{{ item }}') | from_yaml
+          loop:
+            - "consul-secrets-ca.yml.j2"
+            - "consul-secrets-gossip.yml.j2"
+
+        - name: create secrets for consul agents
+          kubernetes.core.k8s:
+            kubeconfig: "/etc/rancher/k3s/k3s.yaml"
+            state: present
+            definition: "{{ item }}"
+            validate:
+              fail_on_error: false
+              strict: true
+          loop:
+            - "{{ lookup('template', './templates/k3s-manifests/consul-secrets-ca.yml.j2') | from_yaml }}"
+            - "{{ lookup('template', './templates/k3s-manifests/consul-secrets-gossip.yml.j2') | from_yaml }}"
+
         - name: add helm chart repository for Hashicorp
           kubernetes.core.helm_repository:
             name: "hashicorp"
             repo_url: "https://helm.releases.hashicorp.com"
-        - name: add helm chart repository for Hashicorp
+
+        - name: deploy consul in k3s cluster
           kubernetes.core.helm:
-            name: "hashicorp"
-            repo_url: "https://helm.releases.hashicorp.com"
-      delegate_to: localhost
+            kubeconfig: "/etc/rancher/k3s/k3s.yaml"
+            name: "consul"
+            chart_ref: "hashicorp/consul"
+            create_namespace: true
+            release_namespace: "consul"
+            values: "{{ lookup('template', './templates/k3s-configs/k3s-consul.j2') | from_yaml }}"
+      when: inventory_hostname == ansible_play_hosts[0]
       tags:
         - k3s-install
         - k3s-manifests

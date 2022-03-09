@@ -22,6 +22,16 @@ kernel_modules:
 print_terraform_backend: false
 
 consul_datacenter: "{{ _olympus_v2['consul_hosts']['datacenter'] }}"
+consul_domain: "consul."
+consul_recursors: ["1.1.1.1", "8.8.8.8"]
+consul_ports:
+  dns: 8600
+  http: 8500
+  https: 8501
+  grpc: 8502
+  lan_serf: 8301
+  wan_serf: 8302
+  server: 8300
 nomad_datacenter: "{{ _olympus_v2['nomad_hosts']['datacenter'] }}"
 
 hostprep_install_dependencies:
