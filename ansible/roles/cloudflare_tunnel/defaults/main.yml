@@ -1,12 +1,12 @@
 ---
 # defaults file for cloudflare_tunnel
-cloudflared_install_debug: false
 cloudflared_install_override: false
 _install_cloudflared: false
 
 cloudflared_version: false
 
-cloudflared_repo_url: "https://github.com/cloudflare/cloudflared/releases/download"
+cloudflared_repo_url: "https://github.com/cloudflare/cloudflared"
+cloudflared_dl_url: "{{ cloudflared_repo_url }}/releases/download"
 cloudflared_config_path: "/etc/cloudflared"
 cloudflared_binary_dir: "/usr/local/bin"
 

@@ -31,26 +31,64 @@
 - name: print discovered version
   ansible.builtin.debug:
     var: _discovered_binary_version
-  when: cloudflared_install_debug
+  when: cloudflared_install_debug|default(false) and cloudflared_binary.stat.exists
+
+- name: get cloudflared versions from repository
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/cloudflare/cloudflared/releases"
+    method: "GET"
+    return_content: true
+    headers:
+      Accept: "application/vnd.github.v3+json"
+    status_code: [200]
+  register: cf_repo_releases_blurb
+  when: cloudflared_version is boolean and not cloudflared_version
+
+- name: print out cf_repo_releases_blurb
+  ansible.builtin.debug:
+    var: cf_repo_releases_blurb['json'] | community.general.json_query('[*].tag_name') | first
+  when:
+    - cloudflared_version is boolean
+    - not cloudflared_version
+    - cloudflared_install_debug|default(false)
+
+- name: determine latest clouflared version
+  ansible.builtin.set_fact:
+    _cf_latest_version: "{{ cf_repo_releases_blurb['json'] | community.general.json_query('[*].tag_name') | first }}"
+  when:
+    - cloudflared_version is boolean
+    - not cloudflared_version
+
+- name: determine if to install or upgrade cloudflared binary (user provided version desired)
+  ansible.builtin.set_fact:
+    _install_cloudflared: true
+    install_version: "{{ cloudflared_version }}"
+  when:
+    - cloudflared_version is string
+    - (not cloudflared_binary.stat.exists)
+      or (cloudflared_binary.stat.exists and _discovered_binary_version is version(cloudflared_version,operator='lt',version_type='semver'))
+      or cloudflared_install_override
 
 - name: determine if to install or upgrade cloudflared binary
   ansible.builtin.set_fact:
     _install_cloudflared: true
-  when: >
-    (not cloudflared_binary.stat.exists)
-    or (cloudflared_binary.stat.exists and _discovered_binary_version is version(cloudflared_version,operator='lt',version_type='semver'))
-    or cloudflared_install_override
+    install_version: "{{ _cf_latest_version }}"
+  when:
+    - cloudflared_version is boolean
+    - (not cloudflared_binary.stat.exists)
+      or (cloudflared_binary.stat.exists and _discovered_binary_version is version(_cf_latest_version,operator='lt',version_type='semver'))
+      or cloudflared_install_override
 
 - name: testing variable cloudflared_binary_version
   ansible.builtin.debug:
     var: _install_cloudflared
-  when: cloudflared_install_debug
+  when: cloudflared_install_debug|default(false)
 
 - name: testing variable cloudflared_version to be installed
   ansible.builtin.debug:
     var: cloudflared_version
   when:
-    - cloudflared_install_debug
+    - cloudflared_install_debug|default(false)
     - _install_cloudflared | default(false)
 
 - name: define supported *nix distributions
@@ -110,17 +148,22 @@
 - name: testing variable _discovered_os
   ansible.builtin.debug:
     var: _discovered_os
-  when: cloudflared_install_debug
+  when: cloudflared_install_debug|default(false)
 
 - name: testing variable _discovered_arch
   ansible.builtin.debug:
     var: _discovered_arch
-  when: cloudflared_install_debug
+  when: cloudflared_install_debug|default(false)
+
+- name: set cloudflared_archive_url to get cloudflared binary from
+  ansible.builtin.set_fact:
+    _cloudflared_archive_url: "{{ cloudflared_dl_url }}/{{ install_version }}/cloudflared-{{ _discovered_os }}-{{ _discovered_arch }}"
+  when: cloudflared_install_debug|default(false) and _install_cloudflared
 
 - name: testing variable cloudflared_archive_url to get cloudflared binary from
   ansible.builtin.debug:
-    var: "{{ cloudflared_repo_url }}/{{ cloudflared_version }}/cloudflared-{{ _discovered_os }}-{{ _discovered_arch }}"
-  when: cloudflared_install_debug and _install_cloudflared
+    var: _cloudflared_archive_url
+  when: cloudflared_install_debug|default(false) and _install_cloudflared
 
 - name: create cloudflared group
   ansible.builtin.group:
