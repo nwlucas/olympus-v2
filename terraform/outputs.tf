@@ -11,6 +11,10 @@ output "cf_apps" {
   value = local.cf_apps
 }
 
+output "hashi_hosts" {
+  value = local.hashi_hosts
+}
+
 output "hashi_cas" {
   value = {
     "root" = {

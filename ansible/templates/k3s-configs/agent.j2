@@ -11,7 +11,7 @@ v: 4
 log: {{ k3s_log_file|default("/var/log/k3s.log") }}
 alsologtostderr: true
 {% endif %}
-node-name: "{{ inventory_hostname }}"
-with-node-id: false
+node-name: "{{ ansible_facts['hostname'] }}"
+with-node-id: true
 node-label:
   - "host={{ host_type }}"

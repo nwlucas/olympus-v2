@@ -1,0 +1,102 @@
+---
+client:
+  enabled: true
+  image: "hashicorp/consul:1.11.4"
+  extraConfig: |
+    {
+      "log_level": "DEBUG",
+      "advertise_reconnect_timeout": "15m",
+      "leave_on_terminate": true
+    }
+  extraVolumes:
+  - load: false
+    name: consul-ca-cert
+    type: secret
+  - load: false
+    name: consul-gossipencryption
+    type: secret
+  grpc: true
+  join:
+  - "rpi-01.nwlnexus.net:8301"
+  - "rpi-02.nwlnexus.net:8301"
+  - "rpi-03.nwlnexus.net:8301"
+  - "rpi-04.nwlnexus.net:8301"
+  - "rpi-05.nwlnexus.net:8301"
+  resources:
+    limits:
+      cpu: '2'
+      memory: 4Gi
+    requests:
+      cpu: '1'
+      memory: 2Gi
+  affinity: |
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+  type: RollingUpdate
+  updateStrategy: |
+    rollingUpdate:
+      maxUnavailable: 3
+
+connectInject:
+  default: true
+  enabled: true
+  logLevel: debug
+
+controller:
+  enabled: false
+  logLevel: debug
+
+dns:
+  enableRedirection: true
+  enabled: true
+
+externalServers:
+  enabled: true
+  hosts:
+  - rpi-01.nwlnexus.net
+  - rpi-02.nwlnexus.net
+  - rpi-03.nwlnexus.net
+  - rpi-04.nwlnexus.net
+  - rpi-05.nwlnexus.net
+  httpsPort: 8501
+
+global:
+  datacenter: olympus
+  domain: consul
+  gossipEncryption:
+    secretKey: token
+    secretName: consul-gossipencryption
+  metrics:
+    enabled: true
+  name: consul
+  recursors:
+  - 1.1.1.1
+  - 8.8.8.8
+  tls:
+    enableAutoEncrypt: true
+    enabled: true
+    verify: true
+
+ingressGateway:
+  enabled: true
+
+server:
+  enabled: false
+
+syncCatalog:
+  consulNodeName: k3s-sync
+  enabled: true
+  extraVolumes:
+  - load: false
+    name: consul-ca-cert
+    type: secret
+  k8sPrefix: k3s-
+  k8sTag: k3s
+  logLevel: debug
+
+ui:
+  enabled: false

@@ -16,10 +16,10 @@ hades.nwlnexus.net
 [app_servers]
 janus-[01:02].nwlnexus.net
 hades.nwlnexus.net
-rpi-06.nwlnexus.net
+rpi-[06:09].nwlnexus.net
 
 [rpi_servers]
-rpi-[01:06].nwlnexus.net
+rpi-[01:09].nwlnexus.net
 
 [supermicro_servers]
 hades.nwlnexus.net
@@ -33,12 +33,12 @@ vault_servers
 consul_servers
 
 [k3s_masters]
-rpi-[01:03].nwlnexus.net
+rpi-[01:05].nwlnexus.net
 
 [k3s_nodes]
 janus-[01:02].nwlnexus.net
 hades.nwlnexus.net
-rpi-[04:06].nwlnexus.net
+rpi-[06:09].nwlnexus.net
 
 [k3s_cluster:children]
 k3s_masters

@@ -699,7 +699,7 @@
 
     - name: cleanup actions IF K3s state is set to uninstalled
       block:
-        - name: create consul service for k3s server nodes
+        - name: remove consul service for k3s server nodes
           ansible.builtin.uri:
             url: "http://127.0.0.1:8500/v1/agent/service/deregister/{{ ansible_facts['hostname'] + '-' + service_name }}"
             method: "PUT"
@@ -779,6 +779,7 @@
           loop:
             - "consul-secrets-ca.yml.j2"
             - "consul-secrets-gossip.yml.j2"
+            - "k3s-consul.j2"
 
         - name: create secrets for consul agents
           kubernetes.core.k8s:
@@ -804,8 +805,10 @@
             chart_ref: "hashicorp/consul"
             create_namespace: true
             release_namespace: "consul"
-            values: "{{ lookup('template', './templates/k3s-configs/k3s-consul.j2') | from_yaml }}"
-      when: inventory_hostname == ansible_play_hosts[0]
+            values: "{{ lookup('template', './templates/k3s-manifests/k3s-consul.j2') | from_yaml }}"
+      when:
+        - inventory_hostname == ansible_play_hosts[0]
+        - k3s_state|default("installed") != "uninstalled"
       tags:
         - k3s-install
         - k3s-manifests

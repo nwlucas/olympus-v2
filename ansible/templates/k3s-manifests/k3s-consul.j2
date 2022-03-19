@@ -1,0 +1,95 @@
+client:
+  affinity: |
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+  enabled: true
+  extraConfig: |
+    {
+      "log_level": "DEBUG",
+      "advertise_reconnect_timeout": "15m",
+      "leave_on_terminate": true
+    }
+  extraVolumes:
+    - type: secret
+      name: consul-ca-cert
+      load: false
+    - type: secret
+      name: consul-gossipencryption
+      load: false
+  grpc: true
+  image: "hashicorp/consul:{{ consul_version }}"
+  join: {{ groups['consul_servers'] | replace('\'', '\"') }}
+  resources:
+    requests:
+      memory: '2Gi'
+      cpu: '1'
+    limits:
+      memory: '4Gi'
+      cpu: '2'
+  type: RollingUpdate
+  updateStrategy: |
+    rollingUpdate:
+      maxUnavailable: 3
+
+connectInject:
+  enabled: true
+  default: true
+  logLevel: "debug"
+
+controller:
+  enabled: false
+  logLevel: "debug"
+
+dns:
+  enabled: true
+  enableRedirection: true
+
+externalServers:
+  enabled: true
+  hosts: {{ groups['consul_servers'] | replace('\'', '\"') }}
+  httpsPort: {{ consul_ports['https'] }}
+
+global:
+  caCert:
+    secretName: consul-ca-cert
+    secretKey: tls.crt
+  caKey:
+    secretName: consul-ca-cert
+    secretKey: tls.key
+  domain: "{{ consul_domain }}"
+  datacenter: "{{ consul_datacenter }}"
+  gossipEncryption:
+    secretName: "consul-gossipencryption"
+    secretKey: "token"
+  metrics:
+    enabled: true
+  name: consul
+  recursors: {{ consul_recursors | replace('\'', '\"') }}
+  tls:
+    enabled: true
+    enableAutoEncrypt: true
+    verify: true
+
+ingressGateway:
+  enabled: true
+
+server:
+  enabled: false
+
+syncCatalog:
+  consulNodeName: "k3s-sync"
+  enabled: true
+  extraVolumes:
+  - load: false
+    name: consul-ca-cert
+    type: secret
+  k8sPrefix: "k3s-"
+  k8sTag: "k3s"
+  logLevel: "debug"
+
+ui:
+  enabled: false
