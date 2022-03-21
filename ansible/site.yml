@@ -760,18 +760,28 @@
             name: helm
             classic: true
 
+        - name: ensure helm plugins are installed
+          kubernetes.core.helm_plugin:
+            kubeconfig: "/etc/rancher/k3s/k3s.yaml"
+            plugin_path: "https://github.com/databus23/helm-diff"
+            state: present
+
         - name: grab k3s service file from each host
           ansible.builtin.slurp:
             src: "/etc/rancher/k3s/k3s.yaml"
           register: k3s_consul_svc_file
 
-        - name: create consul namespace
+        - name: create namespaces
           kubernetes.core.k8s:
             kubeconfig: "/etc/rancher/k3s/k3s.yaml"
-            name: consul
+            name: "{{ item }}"
             api_version: v1
             kind: Namespace
             state: present
+          loop:
+            - "consul"
+            - "cert-manager"
+            - "traefik"
 
         - name: show templating
           ansible.builtin.debug:
@@ -793,19 +803,47 @@
             - "{{ lookup('template', './templates/k3s-manifests/consul-secrets-ca.yml.j2') | from_yaml }}"
             - "{{ lookup('template', './templates/k3s-manifests/consul-secrets-gossip.yml.j2') | from_yaml }}"
 
-        - name: add helm chart repository for Hashicorp
+        - name: add helm chart repositories
           kubernetes.core.helm_repository:
-            name: "hashicorp"
-            repo_url: "https://helm.releases.hashicorp.com"
+            name: "{{ item['name'] }}"
+            repo_url: "{{ item['url'] }}"
+          loop:
+            - name: "hashicorp"
+              url: "https://helm.releases.hashicorp.com"
+            - name: "jetstack"
+              url: "https://charts.jetstack.io"
+            - name: "traefik"
+              url: "https://helm.traefik.io/traefik"
+            - name: "kube-vip"
+              url: "https://kube-vip.io/helm-charts"
 
-        - name: deploy consul in k3s cluster
+        - name: deploy helm charts
           kubernetes.core.helm:
             kubeconfig: "/etc/rancher/k3s/k3s.yaml"
-            name: "consul"
-            chart_ref: "hashicorp/consul"
-            create_namespace: true
-            release_namespace: "consul"
-            values: "{{ lookup('template', './templates/k3s-manifests/k3s-consul.j2') | from_yaml }}"
+            update_repo_cache: true
+            name: "{{ item['name'] }}"
+            chart_ref: "{{ item['chart_ref'] }}"
+            chart_version: "{{ item['version']|default(omit) }}"
+            create_namespace: "{{ item['create_namespace'] }}"
+            release_namespace: "{{ item['release_namespace'] }}"
+            values: "{{ item['values']|default(omit) }}"
+          loop:
+            - name: "consul"
+              chart_ref: "hashicorp/consul"
+              create_namespace: true
+              release_namespace: "consul"
+              values: "{{ lookup('template', './templates/k3s-manifests/k3s-consul.j2') | from_yaml }}"
+            - name: "cert-manager"
+              chart_ref: "jetstack/cert-manager"
+              create_namespace: true
+              release_namespace: "cert-manager"
+              version: "v1.7.1"
+              values: "{{ lookup('template', './templates/k3s-manifests/cert-manager.j2') | from_yaml }}"
+            - name: "traefik"
+              chart_ref: "traefik/traefik"
+              create_namespace: true
+              release_namespace: "traefik"
+              values: "{{ lookup('file', './files/traefik.yml') | from_yaml }}"
       when:
         - inventory_hostname == ansible_play_hosts[0]
         - k3s_state|default("installed") != "uninstalled"

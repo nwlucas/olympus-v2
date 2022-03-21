@@ -25,10 +25,10 @@ client:
   join: {{ groups['consul_servers'] | replace('\'', '\"') }}
   resources:
     requests:
-      memory: '2Gi'
+      memory: '400M'
       cpu: '1'
     limits:
-      memory: '4Gi'
+      memory: '1Gi'
       cpu: '2'
   type: RollingUpdate
   updateStrategy: |
@@ -36,7 +36,7 @@ client:
       maxUnavailable: 3
 
 connectInject:
-  enabled: true
+  enabled: false
   default: true
   logLevel: "debug"
 
@@ -75,14 +75,14 @@ global:
     verify: true
 
 ingressGateway:
-  enabled: true
+  enabled: false
 
 server:
   enabled: false
 
 syncCatalog:
   consulNodeName: "k3s-sync"
-  enabled: true
+  enabled: false
   extraVolumes:
   - load: false
     name: consul-ca-cert
