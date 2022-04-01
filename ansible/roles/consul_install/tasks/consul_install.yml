@@ -8,7 +8,7 @@
     - name: testing variable consul_version to be installed
       ansible.builtin.debug:
         var: services_state.ansible_facts.services
-      when: consul_install_debug
+      when: consul_install_debug|default(false)
 
     - name: stop consul service
       ansible.builtin.systemd:
@@ -57,7 +57,7 @@
 - name: testing variable consul_archive_dl
   ansible.builtin.debug:
     var: consul_archive_dl
-  when: consul_install_debug
+  when: consul_install_debug|default(false)
   tags:
     - consul-install
 

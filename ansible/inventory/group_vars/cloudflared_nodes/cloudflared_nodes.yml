@@ -1,5 +1,2 @@
 cloudflared_config_path: "/opt/cloudflared"
 cloudflared_binary_dir: "/opt/bin"
-
-cloudflared_install_debug: true
-cloudflared_version: "2022.1.0"

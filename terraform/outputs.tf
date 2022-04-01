@@ -1,3 +1,7 @@
+output "cf_ips" {
+  value = data.cloudflare_ip_ranges.cloudflare
+}
+
 output "olympus_tunnel" {
   value = {
     "cname"      = cloudflare_argo_tunnel.olympus_tunnel.cname
@@ -9,6 +13,14 @@ output "olympus_tunnel" {
 }
 output "cf_apps" {
   value = local.cf_apps
+}
+
+output "cf_access_apps" {
+  value = cloudflare_access_application.access_apps
+}
+
+output "hashi_hosts" {
+  value = local.hashi_hosts
 }
 
 output "hashi_cas" {
@@ -121,4 +133,11 @@ output "cloudflare_tunnel_regions" {
 
 output "cloudflare_tunnel_api" {
   value = flatten([for k, v in data.dns_a_record_set.cloudflare_tunnel_api : v.addrs])
+}
+
+output "k3s_cluster" {
+  value = {
+    "server_token" = random_id.k3s_server_token.b64_std
+    "agent_token"  = random_id.k3s_agent_token.b64_std
+  }
 }

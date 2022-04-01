@@ -1,8 +1,20 @@
 ---
 ansible_user: ubuntu
 
+use_nomad: false
+use_k3s: false
+
 install_ddclient: true
 install_certbot: true
+
+k3s_version: v1.22.3+k3s1
+consul_version: "1.11.4"
+
+hashi_binary_dir: "/opt/bin"
+systemd_dir: /etc/systemd/system
+master_ip: "{{ hostvars[groups['master'][0]]['ansible_host'] | default(groups['master'][0]) }}"
+extra_server_args: ""
+extra_agent_args: ""
 
 kernel_modules:
   - "br_netfilter"
@@ -10,6 +22,16 @@ kernel_modules:
 print_terraform_backend: false
 
 consul_datacenter: "{{ _olympus_v2['consul_hosts']['datacenter'] }}"
+consul_domain: "consul."
+consul_recursors: ["1.1.1.1", "8.8.8.8"]
+consul_ports:
+  dns: 8600
+  http: 8500
+  https: 8501
+  grpc: 8502
+  lan_serf: 8301
+  wan_serf: 8302
+  server: 8300
 nomad_datacenter: "{{ _olympus_v2['nomad_hosts']['datacenter'] }}"
 
 hostprep_install_dependencies:
@@ -34,3 +56,11 @@ nomad_drivers:
 cni:
   url: "https://github.com/containernetworking/plugins/releases/download/"
   version: "1.0.1"
+
+uninstall_hostprep: false
+uninstall_cni: false
+uninstall_docker: false
+uninstall_nomad: false
+uninstall_consul: false
+uninstall_vault: false
+uninstall_cloudflared: false

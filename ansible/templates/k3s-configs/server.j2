@@ -1,0 +1,10 @@
+datastore-endpoint: "{{ vault_db_k3s.adapter }}://{{ vault_db_k3s.user }}:{{ vault_db_k3s.pass }}@{{ vault_db_k3s.server }}:{{ vault_db_k3s.port }}/{{ vault_db_k3s.db }}?sslmode=disable"
+flannel-backend: "{{ k3s_flannel_backend }}"
+tls-san:
+  - "{{ k3s_ha_fqdn }}"
+node-taint:
+  - "CriticalAddonsOnly=true:NoExecute"
+disable:
+  - servicelb
+  - traefik
+write-kubeconfig-mode: "0644"

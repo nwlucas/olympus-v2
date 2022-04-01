@@ -1,0 +1,34 @@
+---
+- name: fact and backend gathering
+  hosts: nomad_servers,consul_servers,app_servers
+  gather_facts: true
+  become: true
+  handlers:
+    - name: import handlers
+      ansible.builtin.import_tasks: ./handlers/main.yml
+  roles:
+    - role: consul_install
+      vars:
+        consul_certs: "{{ _olympus_v2['consul_hosts'] }}"
+        consul_ca: "{{ _olympus_v2['hashi_cas'] }}"
+        consul_encrypt_token: "{{ _olympus_v2['consul_hosts']['consul_secret'] }}"
+      tags:
+        - consul-install
+        - consul-certs
+        - consul-config
+        - hashi-stack
+
+    - role: nomad_install
+      vars:
+        nomad_certs: "{{ _olympus_v2['nomad_hosts'] }}"
+        nomad_ca: "{{ _olympus_v2['hashi_cas'] }}"
+        nomad_encrypt_token: "{{ _olympus_v2['nomad_hosts']['nomad_secret'] }}"
+        nomad_log_level: "debug"
+      when:
+        - use_nomad
+        - ("'nomad_servers' in group_names") or ("'app_servers in group_names'")
+      tags:
+        - nomad-install
+        - nomad-certs
+        - nomad-config
+        - hashi-stack

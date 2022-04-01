@@ -1,0 +1,57 @@
+---
+- name: fact and backend gathering
+  hosts: k3s_masters
+  gather_facts: true
+  become: true
+  handlers:
+    - name: import handlers
+      ansible.builtin.import_tasks: ./handlers/main.yml
+  tasks:
+    - name: grab k3s secret with admin token
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=kube-system
+          - get
+          - secret
+          - -o=jsonpath='{.items[?(@.metadata.annotations.kubernetes\.io/service-account\.name=="default")].data.token}'
+      register: k3s_token_raw
+      changed_when: false
+
+    - name: show k3s admin token
+      ansible.builtin.set_fact:
+        k3s_token: "{{ k3s_token_raw.stdout | b64decode }}"
+
+    - name: test token hitting API/version
+      ansible.builtin.uri:
+        url: "https://127.0.0.1:6443/version"
+        method: "GET"
+        return_content: true
+        headers:
+          Authorization: "Bearer {{ k3s_token }}"
+        validate_certs: false
+      register: k3s_api_version_output
+
+    - name: set k3s version
+      ansible.builtin.set_fact:
+        _k3s_version: "{{ k3s_api_version_output['json'] | community.general.json_query('gitVersion') }}"
+
+    - name: template out service registration
+      ansible.builtin.template:
+        src: "./templates/consul-services/k3s-master.j2"
+        dest: "/opt/k3s-service.json"
+        mode: "0644"
+      register: k3s_consul_svc_tpl
+      when: k3s_token_raw is succeeded and k3s_token|length > 0
+
+    - name: grab k3s service file from each host
+      ansible.builtin.slurp:
+        src: "/etc/rancher/k3s/k3s.yaml"
+      register: k3s_consul_svc_file
+      when: k3s_consul_svc_tpl is changed
+      tags:
+        - skip_ansible_lint
+
+    - name: set k3s json fact
+      ansible.builtin.set_fact:
+        _k3s_version: "{{ k3s_api_version_output['json'] | community.general.json_query('gitVersion') }}"

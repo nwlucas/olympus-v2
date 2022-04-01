@@ -155,13 +155,13 @@ resource "local_file" "cert_public_key" {
   filename = var.cert_public_key_path
 }
 
-resource "aws_s3_bucket_object" "cert_key" {
+resource "aws_s3_object" "cert_key" {
   bucket  = var.aws_bucket
   key     = format("%s/%s", var.aws_key, var.cert_private_key_path)
   content = tls_private_key.cert.private_key_pem
 }
 
-resource "aws_s3_bucket_object" "cert_pem" {
+resource "aws_s3_object" "cert_pem" {
   bucket  = var.aws_bucket
   key     = format("%s/%s", var.aws_key, var.cert_public_key_path)
   content = tls_locally_signed_cert.cert.cert_pem

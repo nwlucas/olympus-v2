@@ -5,11 +5,6 @@
       ansible.builtin.service_facts:
       register: services_state
 
-    - name: print services facts
-      ansible.builtin.debug:
-        var: services_state.ansible_facts.services
-      when: cloudflared_install_debug
-
     - name: stop cloudflared service
       ansible.builtin.systemd:
         name: cloudflared.service
@@ -22,10 +17,37 @@
   tags:
     - cloudflared-install
 
+- name: Ensure sha256sum is set from hashsum variable
+  ansible.builtin.set_fact:
+    cf_binary_name: "cloudflared-{{ _discovered_os }}-{{ _discovered_arch }}"
+  changed_when: false
+  check_mode: false
+
+- name: ensure the hashsum is downloaded
+  ansible.builtin.uri:
+    url: "{{ cloudflared_repo_url }}/releases/tag/{{ install_version }}"
+    return_content: true
+  register: cf_hash_sum_raw
+  check_mode: false
+
+- name: Ensure sha256sum is set from hashsum variable
+  ansible.builtin.set_fact:
+    cf_hash_sum: "{{ (cf_hash_sum_raw.content.split('\n') |
+      select('search', cf_binary_name) |
+      first).split() | last }}"
+  changed_when: false
+  check_mode: false
+
+- name: print hash sum
+  ansible.builtin.debug:
+    var: cf_hash_sum
+  check_mode: false
+
 - name: download binary
   ansible.builtin.get_url:
-    url: "{{ cloudflared_repo_url }}/{{ cloudflared_version }}/cloudflared-{{ _discovered_os }}-{{ _discovered_arch }}"
+    url: "{{ cloudflared_dl_url }}/{{ install_version }}/{{ cf_binary_name }}"
     dest: "{{ cloudflared_binary_dir }}/cloudflared"
+    checksum: "sha256:{{ cf_hash_sum }}"
     owner: "{{ cloudflared_user }}"
     group: "{{ cloudflared_group }}"
     mode: 0555

@@ -90,6 +90,27 @@ lb_apps = [
     port        = "22"
   },
   {
+    app_name    = "rpi-07-ssh"
+    backend     = "rpi-07.nwlnexus.net"
+    admin_group = "olympus_group"
+    proto       = "ssh"
+    port        = "22"
+  },
+  {
+    app_name    = "rpi-08-ssh"
+    backend     = "rpi-08.nwlnexus.net"
+    admin_group = "olympus_group"
+    proto       = "ssh"
+    port        = "22"
+  },
+  {
+    app_name    = "rpi-09-ssh"
+    backend     = "rpi-09.nwlnexus.net"
+    admin_group = "olympus_group"
+    proto       = "ssh"
+    port        = "22"
+  },
+  {
     app_name    = "qnap-ssh"
     backend     = "qnap.nwlnexus.net"
     admin_group = "olympus_group"

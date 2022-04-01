@@ -67,6 +67,13 @@ variable "acme_private_key_ecdsa_curve" {
   }
 }
 
+variable "validity_period_hours" {
+  type        = number
+  description = "Certificate valid lifetime in hours/"
+  default     = 87600
+}
+
+
 variable "lb_apps" {
   type = list(object({
     app_name         = string

@@ -1,6 +1,4 @@
-consul_install_debug: false
-consul_install_override: false
-consul_version: 1.10.4
+---
 # This is not required as the default interface for these devices is eth0 but this is here
 # to show the possible customization and testing. Defining an invalid interface will cause
 # the play to fail.

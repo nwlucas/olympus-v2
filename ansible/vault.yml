@@ -1,0 +1,25 @@
+- name: vault special tasks
+  hosts: vault_servers
+  gather_facts: true
+  become: true
+  handlers:
+    - import_tasks: ./handlers/main.yml
+  roles:
+    - role: vault_init
+      tags:
+        - vault-init
+        - never
+    - role: vault_unseal
+      tags:
+        - vault-unseal
+        - never
+    - role: vault_install
+      when: "'vault_servers' in group_names"
+      vars:
+        vault_certs: "{{ _olympus_v2['vault_hosts'] }}"
+        vault_ca: "{{ _olympus_v2['hashi_cas'] }}"
+      tags:
+        - vault-install
+        - vault-certs
+        - vault-config
+        - hashi-stack

@@ -1,0 +1,261 @@
+---
+- name: host cleanup
+  hosts: all
+  gather_facts: true
+  become: true
+  handlers:
+    - name: import handlers
+      ansible.builtin.import_tasks: ./handlers/main.yml
+  pre_tasks:
+    - name: set _arch fact
+      ansible.builtin.set_fact:
+        _arch: "{%- if ansible_facts['architecture'] == 'aarch64' %}arm64{%- else %}amd64{%- endif %}"
+      tags:
+        - always
+
+    - name: set _system fact
+      ansible.builtin.set_fact:
+        _system: "{{ ansible_facts['system']|lower }}"
+      tags:
+        - always
+
+  tasks:
+    - name: uninstall prerequisites
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: "absent"
+        update_cache: true
+        autoremove: true
+        autoclean: true
+      loop: "{{ hostprep_install_dependencies | default([]) }}"
+      when:
+        - uninstall_hostprep
+      tags:
+        - install-host-prereqs
+
+    - name: uninstall docker
+      block:
+        - name: stop docker service
+          ansible.builtin.systemd:
+            name: docker.service
+            state: stopped
+            enabled: false
+          when: services_state['ansible_facts']['services'] is search('docker')
+
+        - name: remove docker service
+          ansible.builtin.file:
+            path: "/etc/systemd/system/{{ item }}"
+            state: "absent"
+          notify: reload systemd
+          loop:
+            - "docker.service"
+            - "docker.socket"
+
+        - name: uninstall docker packages
+          ansible.builtin.apt:
+            name: "{{ item }}"
+            state: "absent"
+            update_cache: true
+            autoremove: true
+            autoclean: true
+          loop:
+            - "docker-ce"
+            - "docker-ce-cli"
+            - "containerd.io"
+
+        - name: remove docker configuration, binary and files
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: "absent"
+          loop:
+            - "/var/lib/docker"
+            - "/var/lib/containerd"
+            - "/etc/docker"
+      when:
+        - inventory_hostname in groups['app_servers']
+        - use_docker
+        - uninstall_docker
+
+    - name: uninstall nomad agents
+      block:
+        - name: detect if nomad service is running
+          ansible.builtin.systemd:
+            name: "nomad"
+          register: _nomad_service
+
+        - name: stop nomad service
+          ansible.builtin.systemd:
+            name: nomad.service
+            state: stopped
+            enabled: false
+          when:
+            - _nomad_service is not skipped
+            - _nomad_service['status']['ActiveState'] == "active"
+
+        - name: remove nomad service
+          ansible.builtin.file:
+            path: "/etc/systemd/system/nomad.service"
+            state: "absent"
+          notify: reload systemd
+
+        - name: get running processes list from remote host
+          ignore_errors: yes
+          ansible.builtin.shell: "ps -few | grep 'nomad' | awk '{print $2}'"
+          register: running_processes
+          tags:
+            - skip_ansible_lint
+
+        - name: kill running processes
+          ignore_errors: yes
+          ansible.builtin.shell: "kill {{ item }}"
+          with_items: "{{ running_processes.stdout_lines }}"
+          tags:
+            - skip_ansible_lint
+
+        - name: check lingering processes
+          ansible.builtin.wait_for:
+            path: "/proc/{{ item }}/status"
+            state: absent
+          loop: "{{ running_processes.stdout_lines }}"
+          register: killing_nomad_processes
+
+        - name: force kill running processes
+          ignore_errors: yes
+          ansible.builtin.shell: "kill -9 {{ item }}"
+          with_items: "{{ killing_nomad_processes.results | select('failed') | map(attribute='item') | list }}"
+          tags:
+            - skip_ansible_lint
+
+        - name: remove Nomad configuration, binary and files
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: "absent"
+          loop:
+            - "{{ nomad_config_path|default('/opt/nomad') }}"
+            - "{{ hashi_binary_dir|default('/usr/local/bin') }}/nomad"
+      when:
+        - (inventory_hostname in groups['app_servers']) or (inventory_hostname in groups['nomad_servers'])
+        - uninstall_nomad
+
+    - name: uninstall consul agents
+      block:
+        - name: stop consul service
+          ansible.builtin.systemd:
+            name: consul.service
+            state: stopped
+            enabled: false
+
+        - name: remove consul service
+          ansible.builtin.file:
+            path: "/etc/systemd/system/{{ item }}"
+            state: "absent"
+          notify: reload systemd
+          loop:
+            - "consul.service"
+
+        - name: remove consul configuration, binary and files
+          ansible.builtin.file:
+            path: "{{ item }}"
+            recurse: true
+            state: "absent"
+          loop:
+            - "{{ consul_config_path|default('/opt/consul') | dirname }}"
+            - "{{ hashi_binary_dir|default('/usr/local/bin') | dirname }}/consul"
+      when:
+        - (inventory_hostname in groups['app_servers']) or (inventory_hostname in groups['consul_servers'])
+        - uninstall_consul
+
+    - name: uninstall vault agents
+      block:
+        - name: detect if vault service is running
+          ansible.builtin.systemd:
+            name: "vault"
+          register: _vault_service
+
+        - name: stop vault service
+          ansible.builtin.systemd:
+            name: vault.service
+            state: stopped
+            enabled: false
+          when:
+            - _vault_service is not skipped
+            - _vault_service['status']['ActiveState'] == "active"
+
+        - name: remove vault service
+          ansible.builtin.file:
+            path: "/etc/systemd/system/vault.service"
+            state: "absent"
+          notify: reload systemd
+
+        - name: get running processes list from remote host
+          ignore_errors: yes
+          ansible.builtin.shell: "ps -few | grep 'vault' | awk '{print $2}'"
+          register: running_processes
+          tags:
+            - skip_ansible_lint
+
+        - name: kill running processes
+          ignore_errors: yes
+          ansible.builtin.shell: "kill {{ item }}"
+          with_items: "{{ running_processes.stdout_lines }}"
+          tags:
+            - skip_ansible_lint
+
+        - name: check lingering processes
+          ansible.builtin.wait_for:
+            path: "/proc/{{ item }}/status"
+            state: absent
+          loop: "{{ running_processes.stdout_lines }}"
+          register: killing_vault_processes
+
+        - name: force kill running processes
+          ignore_errors: yes
+          ansible.builtin.shell: "kill -9 {{ item }}"
+          with_items: "{{ killing_vault_processes.results | select('failed') | map(attribute='item') | list }}"
+          tags:
+            - skip_ansible_lint
+
+        - name: remove vault configuration, binary and files
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: "absent"
+          loop:
+            - "{{ vault_config_path|default('/opt/vault') }}"
+            - "{{ hashi_binary_dir|default('/usr/local/bin') }}/vault"
+      when:
+        - inventory_hostname in groups['vault_servers']
+        - uninstall_vault
+
+    - name: remove CNI plugins
+      block:
+        - name: make CNI directories
+          ansible.builtin.file:
+            path: "{{ item.dir }}"
+            recurse: true
+            state: absent
+          loop:
+            - dir: "/opt/cni"
+              mode: "0755"
+
+        - name: (1st pass) detect cni conf _cni_cnf_files
+          ansible.builtin.find:
+            paths: "/etc/cni/net.d"
+          register: _cni_cnf_files
+
+        - name: disable and stop cni-dhcp
+          ansible.builtin.systemd:
+            name: cni-dhcp.socket
+            state: stopped
+            enabled: false
+
+        - name: remove DHCP daemon service and socket for CNI
+          ansible.builtin.file:
+            path: "/etc/systemd/system/{{ item }}"
+            state: "absent"
+          notify: reload systemd
+          loop:
+            - "cni-dhcp.service"
+            - "cni-dhcp.socket"
+      when:
+        - inventory_hostname in groups['app_servers']
+        - uninstall_cni

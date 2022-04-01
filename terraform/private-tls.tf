@@ -25,6 +25,8 @@ module "hashi_ca" {
 
   private_key_algorithm   = "ECDSA"
   private_key_ecdsa_curve = "P384"
+  validity_period_hours   = var.validity_period_hours
+
 
   ca_common_name     = format("%s-hashi-ca", var.hashi_datacenter)
   organization_name  = var.organization_name
@@ -39,6 +41,8 @@ module "hashi_intermediate_ca" {
 
   private_key_algorithm   = "ECDSA"
   private_key_ecdsa_curve = "P384"
+  validity_period_hours   = var.validity_period_hours
+
 
   common_name        = format("%s-connect-ca", var.hashi_datacenter)
   organization_name  = var.organization_name
@@ -67,6 +71,8 @@ module "vault_cert" {
 
   private_key_algorithm   = "ECDSA"
   private_key_ecdsa_curve = "P384"
+  validity_period_hours   = var.validity_period_hours
+
 
   common_name       = format("%s.%s", each.key, each.value.domain)
   organization_name = var.organization_name
@@ -106,6 +112,8 @@ module "consul_cert" {
 
   private_key_algorithm   = "ECDSA"
   private_key_ecdsa_curve = "P384"
+  validity_period_hours   = var.validity_period_hours
+
 
   common_name       = format("%s.%s", each.key, each.value.domain)
   organization_name = var.organization_name
@@ -145,6 +153,8 @@ module "nomad_cert" {
 
   private_key_algorithm   = "ECDSA"
   private_key_ecdsa_curve = "P384"
+  validity_period_hours   = var.validity_period_hours
+
 
   common_name       = format("%s.%s", each.key, each.value.domain)
   organization_name = var.organization_name
@@ -183,6 +193,8 @@ module "vault_client_cert" {
 
   private_key_algorithm   = "ECDSA"
   private_key_ecdsa_curve = "P384"
+  validity_period_hours   = var.validity_period_hours
+
 
   common_name       = "vault-client"
   organization_name = var.organization_name
@@ -219,6 +231,8 @@ module "nomad_client_cert" {
 
   private_key_algorithm   = "ECDSA"
   private_key_ecdsa_curve = "P384"
+  validity_period_hours   = var.validity_period_hours
+
 
   common_name       = "nomad-client"
   organization_name = var.organization_name
@@ -256,6 +270,8 @@ module "consul_client_cert" {
 
   private_key_algorithm   = "ECDSA"
   private_key_ecdsa_curve = "P384"
+  validity_period_hours   = var.validity_period_hours
+
 
   common_name       = "consul-client"
   organization_name = var.organization_name

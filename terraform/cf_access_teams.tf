@@ -17,16 +17,18 @@ locals {
 
   cf_apps = [for app in local.lb_apps :
     {
-      app_name       = app.app_name
-      host_name      = app.host_name == "" ? app.app_name : app.host_name
-      domain         = app.domain
-      access_enabled = app.access_enabled
-      service        = format("%s://%s:%s", app.proto, app.backend, app.port)
-      proto          = app.proto
-      port           = app.port
-      path           = app.path
-      public_cert    = app.public_cert
-      cname          = app.host_name == "" ? format("%s.%s", app.app_name, app.domain) : format("%s.%s", app.host_name, app.domain)
+      app_name         = app.app_name
+      host_name        = app.host_name == "" ? app.app_name : app.host_name
+      domain           = app.domain
+      access_enabled   = app.access_enabled
+      service          = format("%s://%s:%s", app.proto, app.backend, app.port)
+      session_duration = app.session_duration
+      proto            = app.proto
+      port             = app.port
+      path             = app.path
+      public_cert      = app.public_cert
+      type             = app.type
+      cname            = app.host_name == "" ? format("%s.%s", app.app_name, app.domain) : format("%s.%s", app.host_name, app.domain)
     }
   ]
 }
@@ -68,9 +70,9 @@ resource "cloudflare_access_group" "access_groups" {
 }
 
 resource "cloudflare_access_application" "access_apps" {
-  for_each = { for app in local.lb_apps : app.app_name => app if app.access_enabled }
+  for_each = { for app in local.cf_apps : app.app_name => app if app.access_enabled }
 
-  zone_id          = data.cloudflare_zone.app_zone[each.value.domain].id
+  account_id       = var.CF_ACCOUNT_ID
   name             = each.key
   domain           = each.value.host_name == "" ? format("%s.%s", each.value.app_name, each.value.domain) : format("%s.%s", each.value.host_name, each.value.domain)
   type             = each.value.type
@@ -101,4 +103,29 @@ resource "cloudflare_record" "apps_cnames" {
   name    = each.value.host_name
   value   = format("%s.cfargotunnel.com", cloudflare_argo_tunnel.olympus_tunnel.id)
   proxied = true
+}
+
+resource "cloudflare_workers_kv_namespace" "access_apps_ns" {
+  title = "ACCESSAPPS"
+}
+
+resource "cloudflare_access_ca_certificate" "access_ssh_certificates" {
+  for_each = { for app in local.cf_apps : app.app_name => app if app.proto == "ssh" }
+
+  zone_id        = cloudflare_access_application.access_apps[each.key].zone_id
+  application_id = cloudflare_access_application.access_apps[each.key].id
+}
+
+resource "cloudflare_workers_kv" "access_apps" {
+  for_each = cloudflare_access_application.access_apps
+
+  namespace_id = cloudflare_workers_kv_namespace.access_apps_ns.id
+  key          = each.key
+  value = jsonencode({
+    "hostname"       = each.value.domain,
+    "service"        = one([for s in local.cf_apps : s.service if s.app_name == each.key]),
+    "application_id" = each.value.id,
+    "zone_id"        = each.value.zone_id,
+    "ssh_key"        = try(cloudflare_access_ca_certificate.access_ssh_certificates[each.key].public_key, "")
+  })
 }
