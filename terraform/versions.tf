@@ -3,15 +3,15 @@ terraform {
   required_providers {
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "~> 3.4.0"
+      version = "~> 3"
     }
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 3.65"
+      version = "~> 4.8"
     }
     acme = {
       source  = "vancluever/acme"
-      version = "2.7.0"
+      version = "2.8"
     }
     random = {
       source  = "hashicorp/random"
@@ -19,15 +19,15 @@ terraform {
     }
     local = {
       source  = "hashicorp/local"
-      version = "~> 2.1"
+      version = "~> 2.2"
     }
     dns = {
       source  = "hashicorp/dns"
-      version = "3.2.1"
+      version = "3.2"
     }
     tls = {
       source  = "hashicorp/tls"
-      version = "3.1.0"
+      version = "3.1"
     }
     cloudinit = {
       source  = "hashicorp/cloudinit"
@@ -35,7 +35,7 @@ terraform {
     }
     digitalocean = {
       source  = "digitalocean/digitalocean"
-      version = "~> 2.16.0"
+      version = "~> 2"
     }
   }
 }

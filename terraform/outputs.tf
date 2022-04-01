@@ -1,3 +1,7 @@
+output "cf_ips" {
+  value = data.cloudflare_ip_ranges.cloudflare
+}
+
 output "olympus_tunnel" {
   value = {
     "cname"      = cloudflare_argo_tunnel.olympus_tunnel.cname
@@ -9,6 +13,10 @@ output "olympus_tunnel" {
 }
 output "cf_apps" {
   value = local.cf_apps
+}
+
+output "cf_access_apps" {
+  value = cloudflare_access_application.access_apps
 }
 
 output "hashi_hosts" {
